@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEET Diagnostic Tool - BioRivet</title>
+    <!-- SheetJS for Excel processing -->
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-blue: #0b2545;
+            --secondary-blue: #13315c;
+            --accent-blue: #134074;
+            --light-blue: #8da9c4;
+            --white: #eef4ed;
+            --text-dark: #1e293b;
+            --text-light: #64748b;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --border: #e2e8f0;
+            --bg-gray: #f8fafc;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-gray);
+            color: var(--text-dark);
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        header {
+            background-color: var(--primary-blue);
+            color: white;
+            padding: 1.5rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        header h1 { margin: 0; font-size: 1.5rem; font-weight: 700; }
+        .back-link { color: var(--light-blue); text-decoration: none; font-weight: 500; font-size: 0.9rem; }
+        .back-link:hover { color: white; text-decoration: underline; }
+
+        main {
+            flex: 1;
+            padding: 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        /* Stepper Navigation */
+        .stepper {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 3rem;
+            position: relative;
+        }
+        
+        .stepper::before {
+            content: '';
+            position: absolute;
+            top: 24px;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: var(--border);
+            z-index: 1;
+        }
+
+        .step {
+            position: relative;
+            z-index: 2;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            width: 33.33%;
+        }
+
+        .step-number {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: white;
+            border: 2px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1.2rem;
+            color: var(--text-light);
+            margin-bottom: 0.5rem;
+            transition: all 0.3s;
+        }
+
+        .step.active .step-number {
+            border-color: var(--accent-blue);
+            background: var(--accent-blue);
+            color: white;
+            box-shadow: 0 0 0 4px rgba(19, 64, 116, 0.2);
+        }
+
+        .step.completed .step-number {
+            border-color: var(--success);
+            background: var(--success);
+            color: white;
+        }
+
+        .step-label {
+            font-weight: 600;
+            color: var(--text-light);
+        }
+
+        .step.active .step-label { color: var(--accent-blue); }
+        .step.completed .step-label { color: var(--success); }
+
+        /* Step Content Containers */
+        .step-content {
+            background: white;
+            border-radius: 12px;
+            padding: 2.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            display: none;
+            animation: fadeIn 0.4s ease-out;
+        }
+
+        .step-content.active { display: block; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        h2 { margin-top: 0; color: var(--secondary-blue); font-size: 1.5rem; margin-bottom: 1.5rem; }
+        
+        /* Drag and Drop Zone */
+        .upload-zone {
+            border: 2px dashed var(--accent-blue);
+            border-radius: 8px;
+            padding: 3rem 2rem;
+            text-align: center;
+            background: rgba(141, 169, 196, 0.1);
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-bottom: 1.5rem;
+        }
+
+        .upload-zone:hover, .upload-zone.dragover {
+            background: rgba(141, 169, 196, 0.2);
+            border-color: var(--primary-blue);
+        }
+
+        .upload-icon { font-size: 3rem; margin-bottom: 1rem; color: var(--accent-blue); }
+        .upload-text { font-size: 1.1rem; color: var(--text-dark); margin-bottom: 0.5rem; }
+        .upload-hint { font-size: 0.9rem; color: var(--text-light); }
+        .file-input { display: none; }
+
+        /* Buttons */
+        .btn {
+            display: inline-block;
+            padding: 0.75rem 1.5rem;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s;
+            text-align: center;
+        }
+
+        .btn-primary {
+            background: var(--accent-blue);
+            color: white;
+        }
+        .btn-primary:hover { background: var(--primary-blue); }
+        
+        .btn-outline {
+            background: transparent;
+            border: 2px solid var(--accent-blue);
+            color: var(--accent-blue);
+        }
+        .btn-outline:hover { background: rgba(19, 64, 116, 0.05); }
+
+        .btn-success { background: var(--success); color: white; }
+        .btn-success:hover { background: #059669; }
+
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 1rem;
+            margin-top: 2rem;
+            border-top: 1px solid var(--border);
+            padding-top: 1.5rem;
+        }
+
+        /* Tables */
+        .table-container {
+            overflow-x: auto;
+            margin-top: 1.5rem;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        th {
+            background: var(--bg-gray);
+            color: var(--text-dark);
+            font-weight: 600;
+            text-align: left;
+            padding: 0.75rem 1rem;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            border-bottom: 2px solid var(--border);
+        }
+
+        td {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-dark);
+        }
+
+        tr:hover { background: rgba(0,0,0,0.01); }
+
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.6rem;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .badge-chapter { background: var(--light-blue); color: var(--primary-blue); }
+        
+        .correct-cell { background-color: rgba(16, 185, 129, 0.15) !important; color: #065f46; font-weight: 500; }
+        .incorrect-cell { background-color: rgba(239, 68, 68, 0.15) !important; color: #991b1b; font-weight: 500; }
+        .unattempted-cell { background-color: #f1f5f9 !important; color: var(--text-light); }
+
+        /* Dashboard Styles */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+        }
+
+        @media (max-width: 992px) {
+            .dashboard-grid { grid-template-columns: 1fr; }
+        }
+
+        .card {
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        }
+
+        .card h3 {
+            margin-top: 0;
+            color: var(--secondary-blue);
+            font-size: 1.1rem;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        /* Progress Bars */
+        .progress-item { margin-bottom: 1rem; }
+        .progress-header { display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 0.25rem; font-weight: 500;}
+        .progress-bar-bg { height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; }
+        .progress-bar-fill { height: 100%; border-radius: 4px; transition: width 1s ease-out; }
+        .fill-danger { background: var(--danger); }
+        .fill-warning { background: var(--warning); }
+        .fill-success { background: var(--success); }
+
+        /* Expandable List */
+        .student-item {
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            margin-bottom: 0.75rem;
+            overflow: hidden;
+        }
+        .student-header {
+            padding: 1rem;
+            background: var(--bg-gray);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        .student-header:hover { background: #e2e8f0; }
+        .student-score { font-size: 1.1rem; color: var(--accent-blue); }
+        .student-details {
+            padding: 1rem;
+            display: none;
+            border-top: 1px solid var(--border);
+            background: white;
+        }
+        .student-details.open { display: block; }
+        .action-plan {
+            background: rgba(245, 158, 11, 0.1);
+            border-left: 4px solid var(--warning);
+            padding: 1rem;
+            border-radius: 0 4px 4px 0;
+            margin-top: 1rem;
+        }
+        .action-plan h4 { margin: 0 0 0.5rem 0; color: #b45309; }
+        .action-plan ul { margin: 0; padding-left: 1.2rem; font-size: 0.9rem; color: #78350f; }
+
+        /* Insights */
+        .insight-stat { text-align: center; padding: 1rem; background: var(--bg-gray); border-radius: 8px; margin-bottom: 1rem;}
+        .insight-value { font-size: 2rem; font-weight: 700; color: var(--primary-blue); line-height: 1; margin-bottom: 0.25rem; }
+        .insight-label { font-size: 0.85rem; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.5px; }
+
+        footer {
+            background-color: var(--primary-blue);
+            color: rgba(255, 255, 255, 0.8);
+            text-align: center;
+            padding: 1.5rem;
+            margin-top: auto;
+            font-size: 0.9rem;
+        }
+
+        .info-box {
+            background-color: rgba(13, 148, 136, 0.1);
+            border-left: 4px solid #0d9488;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            border-radius: 0 4px 4px 0;
+            font-size: 0.95rem;
+        }
+
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>NEET Diagnostic Tool</h1>
+        <a href="index.html" class="back-link">&larr; Back to Hub</a>
+    </header>
+
+    <main>
+        <!-- Stepper -->
+        <div class="stepper">
+            <div class="step active" id="stepper-1">
+                <div class="step-number">1</div>
+                <div class="step-label">Question Paper</div>
+            </div>
+            <div class="step" id="stepper-2">
+                <div class="step-number">2</div>
+                <div class="step-label">Student Data</div>
+            </div>
+            <div class="step" id="stepper-3">
+                <div class="step-number">3</div>
+                <div class="step-label">Diagnostic Report</div>
+            </div>
+        </div>
+
+        <!-- Step 1: Question Paper -->
+        <div class="step-content active" id="step-1">
+            <h2>Upload Question Paper Data</h2>
+            <div class="info-box">
+                <strong>Expected Format:</strong> An Excel (.xlsx) or CSV file containing columns for <code>Q No</code>, <code>Chapter</code>, and <code>Answer</code>.
+            </div>
+            
+            <div class="upload-zone" id="drop-zone-1" onclick="document.getElementById('file-input-1').click()">
+                <div class="upload-icon">📄</div>
+                <div class="upload-text">Drag & Drop your file here or <strong>Click to Browse</strong></div>
+                <div class="upload-hint">Supports .xlsx, .xls, .csv</div>
+                <input type="file" id="file-input-1" class="file-input" accept=".xlsx, .xls, .csv">
+            </div>
+
+            <div id="preview-container-1" style="display: none;">
+                <h3>Data Preview (<span id="q-count">0</span> Questions)</h3>
+                <div class="table-container">
+                    <table id="table-preview-1">
+                        <thead>
+                            <tr>
+                                <th>Q No</th>
+                                <th>Chapter</th>
+                                <th>Correct Answer</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="actions">
+                <button class="btn btn-primary" id="btn-next-1" disabled onclick="goToStep(2)">Next Step &rarr;</button>
+            </div>
+        </div>
+
+        <!-- Step 2: Student Data -->
+        <div class="step-content" id="step-2">
+            <h2>Upload Student Answers</h2>
+            
+            <div class="info-box" style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <strong>Required Format:</strong> Rows represent students. Column 'Student Name', followed by question numbers (1, 2, 3...) containing their answers.
+                </div>
+                <button class="btn btn-outline" onclick="downloadTemplate()" style="padding: 0.5rem 1rem; font-size: 0.9rem;">⬇ Download Template</button>
+            </div>
+
+            <div class="upload-zone" id="drop-zone-2" onclick="document.getElementById('file-input-2').click()">
+                <div class="upload-icon">👥</div>
+                <div class="upload-text">Drag & Drop Student Data here or <strong>Click to Browse</strong></div>
+                <div class="upload-hint">Supports .xlsx, .xls, .csv</div>
+                <input type="file" id="file-input-2" class="file-input" accept=".xlsx, .xls, .csv">
+            </div>
+
+            <div id="preview-container-2" style="display: none;">
+                <h3>Answers Preview (<span id="student-count">0</span> Students)</h3>
+                <div class="table-container">
+                    <table id="table-preview-2">
+                        <thead></thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="actions">
+                <button class="btn btn-outline" onclick="goToStep(1)">&larr; Back</button>
+                <button class="btn btn-primary" id="btn-next-2" disabled onclick="generateReport()">Generate Diagnostics &rarr;</button>
+            </div>
+        </div>
+
+        <!-- Step 3: Diagnostic Report -->
+        <div class="step-content" id="step-3">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <h2 style="margin: 0;">Diagnostic Dashboard</h2>
+                <button class="btn btn-success" onclick="exportReport()">📥 Export Full Report (Excel)</button>
+            </div>
+
+            <div class="dashboard-grid">
+                
+                <!-- Section A: Batch Insights -->
+                <div class="card" style="grid-column: 1 / -1;">
+                    <h3>Batch Level Insights</h3>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                        <div class="insight-stat">
+                            <div class="insight-value" id="stat-avg-score">0</div>
+                            <div class="insight-label">Average Score</div>
+                        </div>
+                        <div class="insight-stat">
+                            <div class="insight-value" id="stat-accuracy" style="color: var(--success);">0%</div>
+                            <div class="insight-label">Overall Accuracy</div>
+                        </div>
+                        <div class="insight-stat">
+                            <div class="insight-value" id="stat-worst-chapter" style="color: var(--danger); font-size: 1.5rem;">-</div>
+                            <div class="insight-label">Critical Chapter (Highest Error)</div>
+                        </div>
+                        <div class="insight-stat">
+                            <div class="insight-value" id="stat-best-chapter" style="color: var(--success); font-size: 1.5rem;">-</div>
+                            <div class="insight-label">Strongest Chapter</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section B: Chapter Performance -->
+                <div class="card">
+                    <h3>Chapter Error Rates</h3>
+                    <div id="chapter-bars-container">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+
+                <!-- Section C: Student Analysis -->
+                <div class="card">
+                    <h3>Individual Student Diagnosis</h3>
+                    <div id="student-list-container">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="actions">
+                <button class="btn btn-outline" onclick="goToStep(2)">&larr; Start Over</button>
+            </div>
+        </div>
+
+    </main>
+
+    <footer>
+        &copy; 2026 BioRivet. Know More. Fear Less.
+    </footer>
+
+    <script>
+        // Global State
+        const AppState = {
+            questionPaper: [], // Array of { qNo, chapter, answer }
+            studentData: [], // Array of { name, answers: { qNo: ans } }
+            results: {
+                chapters: {}, // { name: { total, correct, incorrect, unattempted } }
+                students: [] // { name, score, attempted, correct, incorrect, chapterPerformance: {} }
+            }
+        };
+
+        // --- Navigation ---
+        function goToStep(step) {
+            document.querySelectorAll('.step-content').forEach(el => el.classList.remove('active'));
+            document.getElementById(`step-${step}`).classList.add('active');
+
+            document.querySelectorAll('.step').forEach((el, index) => {
+                if (index + 1 < step) {
+                    el.classList.add('completed');
+                    el.classList.remove('active');
+                } else if (index + 1 === step) {
+                    el.classList.add('active');
+                    el.classList.remove('completed');
+                } else {
+                    el.classList.remove('active', 'completed');
+                }
+            });
+        }
+
+        // --- File Handling Utility ---
+        function setupFileDrop(zoneId, inputId, processCallback) {
+            const zone = document.getElementById(zoneId);
+            const input = document.getElementById(inputId);
+
+            zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('dragover'); });
+            zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+            zone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                zone.classList.remove('dragover');
+                if (e.dataTransfer.files.length) {
+                    input.files = e.dataTransfer.files;
+                    handleFile(e.dataTransfer.files[0], processCallback);
+                }
+            });
+
+            input.addEventListener('change', (e) => {
+                if (e.target.files.length) {
+                    handleFile(e.target.files[0], processCallback);
+                }
+            });
+        }
+
+        function handleFile(file, callback) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, {type: 'array'});
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+                const json = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+                callback(json);
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        // --- Step 1 Logic ---
+        setupFileDrop('drop-zone-1', 'file-input-1', (data) => {
+            if (!data || data.length === 0) return alert("File is empty or invalid.");
+            
+            // Normalize keys
+            const parsed = data.map(row => {
+                const keys = Object.keys(row);
+                const qKey = keys.find(k => k.toLowerCase().includes('no') || k.toLowerCase() === 'q') || keys[0];
+                const chapKey = keys.find(k => k.toLowerCase().includes('chapter') || k.toLowerCase().includes('topic')) || keys[1];
+                const ansKey = keys.find(k => k.toLowerCase().includes('answer') || k.toLowerCase().includes('ans') || k.toLowerCase().includes('key')) || keys[2];
+                
+                return {
+                    qNo: String(row[qKey]).trim(),
+                    chapter: String(row[chapKey] || 'Uncategorized').trim(),
+                    answer: String(row[ansKey]).trim().toUpperCase()
+                };
+            }).filter(item => item.qNo && item.qNo !== "undefined" && item.qNo !== "");
+
+            if (parsed.length === 0) return alert("Could not parse question data. Please check column headers.");
+
+            AppState.questionPaper = parsed;
+            
+            // Render Preview
+            const tbody = document.querySelector('#table-preview-1 tbody');
+            tbody.innerHTML = '';
+            parsed.forEach(item => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><strong>${item.qNo}</strong></td>
+                    <td><span class="badge badge-chapter">${item.chapter}</span></td>
+                    <td>${item.answer}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            document.getElementById('q-count').innerText = parsed.length;
+            document.getElementById('preview-container-1').style.display = 'block';
+            document.getElementById('btn-next-1').disabled = false;
+        });
+
+        // --- Step 2 Logic ---
+        function downloadTemplate() {
+            if (AppState.questionPaper.length === 0) return alert("Please complete Step 1 first.");
+            
+            const wb = XLSX.utils.book_new();
+            const wsData = [
+                ['Student Name', ...AppState.questionPaper.map(q => q.qNo)],
+                ['John Doe', ...AppState.questionPaper.map(() => '')]
+            ];
+            const ws = XLSX.utils.aoa_to_sheet(wsData);
+            XLSX.utils.book_append_sheet(wb, ws, "Answers");
+            XLSX.writeFile(wb, "Student_Answers_Template.xlsx");
+        }
+
+        setupFileDrop('drop-zone-2', 'file-input-2', (data) => {
+            if (!data || data.length === 0) return alert("File is empty.");
+
+            const students = [];
+            
+            data.forEach(row => {
+                const keys = Object.keys(row);
+                // Assume first column is name
+                const nameKey = keys.find(k => k.toLowerCase().includes('name')) || keys[0];
+                const studentName = row[nameKey];
+                
+                if (!studentName) return;
+
+                const answers = {};
+                keys.forEach(k => {
+                    if (k !== nameKey) {
+                        answers[String(k).trim()] = String(row[k] || '').trim().toUpperCase();
+                    }
+                });
+
+                students.push({ name: studentName, answers });
+            });
+
+            AppState.studentData = students;
+
+            // Render Preview Table
+            const thead = document.querySelector('#table-preview-2 thead');
+            const tbody = document.querySelector('#table-preview-2 tbody');
+            
+            const qKeys = AppState.questionPaper.map(q => q.qNo);
+            
+            thead.innerHTML = `<tr><th>Student Name</th>${qKeys.map(k => `<th>Q${k}</th>`).join('')}</tr>`;
+            tbody.innerHTML = '';
+
+            students.forEach(student => {
+                const tr = document.createElement('tr');
+                let html = `<td><strong>${student.name}</strong></td>`;
+                
+                qKeys.forEach(qNo => {
+                    const studentAns = student.answers[qNo] || '';
+                    const correctAns = AppState.questionPaper.find(q => q.qNo === qNo)?.answer;
+                    
+                    let cls = 'unattempted-cell';
+                    if (studentAns) {
+                        cls = (studentAns === correctAns) ? 'correct-cell' : 'incorrect-cell';
+                    }
+                    html += `<td class="${cls}">${studentAns || '-'}</td>`;
+                });
+                
+                tr.innerHTML = html;
+                tbody.appendChild(tr);
+            });
+
+            document.getElementById('student-count').innerText = students.length;
+            document.getElementById('preview-container-2').style.display = 'block';
+            document.getElementById('btn-next-2').disabled = false;
+        });
+
+        // --- Step 3 Logic ---
+        function generateReport() {
+            calculateResults();
+            renderDashboard();
+            goToStep(3);
+        }
+
+        function calculateResults() {
+            const { questionPaper, studentData } = AppState;
+            
+            // Initialize chapters
+            const chapters = {};
+            questionPaper.forEach(q => {
+                if (!chapters[q.chapter]) {
+                    chapters[q.chapter] = { totalQuestions: 0, correct: 0, incorrect: 0, unattempted: 0 };
+                }
+                chapters[q.chapter].totalQuestions += studentData.length;
+            });
+
+            const studentsResult = [];
+
+            studentData.forEach(student => {
+                let score = 0, correct = 0, incorrect = 0, unattempted = 0;
+                const chapterPerf = {}; // chapter: { total: 0, incorrect: 0 }
+
+                questionPaper.forEach(q => {
+                    if (!chapterPerf[q.chapter]) chapterPerf[q.chapter] = { total: 0, incorrect: 0, correct: 0 };
+                    chapterPerf[q.chapter].total++;
+
+                    const studentAns = student.answers[q.qNo];
+                    if (!studentAns) {
+                        unattempted++;
+                        chapters[q.chapter].unattempted++;
+                    } else if (studentAns === q.answer) {
+                        correct++;
+                        score += 4;
+                        chapterPerf[q.chapter].correct++;
+                        chapters[q.chapter].correct++;
+                    } else {
+                        incorrect++;
+                        score -= 1;
+                        chapterPerf[q.chapter].incorrect++;
+                        chapters[q.chapter].incorrect++;
+                    }
+                });
+
+                // Find weakest chapters for student
+                const weakChapters = Object.keys(chapterPerf).map(ch => ({
+                    name: ch,
+                    errorRate: chapterPerf[ch].incorrect / chapterPerf[ch].total
+                })).filter(c => c.errorRate > 0).sort((a,b) => b.errorRate - a.errorRate);
+
+                studentsResult.push({
+                    name: student.name,
+                    score,
+                    maxScore: questionPaper.length * 4,
+                    correct, incorrect, unattempted,
+                    weakChapters
+                });
+            });
+
+            AppState.results = { chapters, students: studentsResult };
+        }
+
+        function renderDashboard() {
+            const { chapters, students } = AppState.results;
+            const qCount = AppState.questionPaper.length;
+            
+            // Stats
+            const avgScore = students.reduce((sum, s) => sum + s.score, 0) / students.length;
+            document.getElementById('stat-avg-score').innerText = avgScore.toFixed(1) + ` / ${qCount*4}`;
+            
+            const totalAttempts = students.reduce((sum, s) => sum + s.correct + s.incorrect, 0);
+            const totalCorrect = students.reduce((sum, s) => sum + s.correct, 0);
+            const acc = totalAttempts ? (totalCorrect / totalAttempts) * 100 : 0;
+            document.getElementById('stat-accuracy').innerText = acc.toFixed(1) + '%';
+
+            // Chapter Error Rates
+            const chapterStats = Object.keys(chapters).map(ch => {
+                const c = chapters[ch];
+                const totalAtt = c.correct + c.incorrect;
+                const errorRate = totalAtt ? (c.incorrect / totalAtt) * 100 : 0;
+                return { name: ch, errorRate, ...c };
+            }).sort((a,b) => b.errorRate - a.errorRate);
+
+            if(chapterStats.length > 0) {
+                document.getElementById('stat-worst-chapter').innerText = chapterStats[0].name;
+                document.getElementById('stat-best-chapter').innerText = chapterStats[chapterStats.length-1].name;
+            }
+
+            const chapterHtml = chapterStats.map(c => {
+                let fillClass = 'fill-success';
+                if (c.errorRate > 50) fillClass = 'fill-danger';
+                else if (c.errorRate > 30) fillClass = 'fill-warning';
+
+                return `
+                    <div class="progress-item">
+                        <div class="progress-header">
+                            <span>${c.name}</span>
+                            <span>${c.errorRate.toFixed(1)}% Error</span>
+                        </div>
+                        <div class="progress-bar-bg">
+                            <div class="progress-bar-fill ${fillClass}" style="width: ${c.errorRate}%"></div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            document.getElementById('chapter-bars-container').innerHTML = chapterHtml;
+
+            // Student List
+            const studentHtml = students.sort((a,b) => b.score - a.score).map((s, i) => {
+                let planHtml = '';
+                if (s.weakChapters.length > 0) {
+                    const topWeak = s.weakChapters.slice(0, 2).map(w => w.name);
+                    planHtml = `
+                        <div class="action-plan">
+                            <h4>⚡ 3-Day Action Plan</h4>
+                            <ul>
+                                <li><strong>Day 1:</strong> Review notes & formulas for <em>${topWeak[0]}</em>.</li>
+                                <li><strong>Day 2:</strong> Solve 30 PYQs focused solely on <em>${topWeak.join(' and ')}</em>.</li>
+                                <li><strong>Day 3:</strong> Take a timed sectional mock for these weak areas.</li>
+                            </ul>
+                        </div>
+                    `;
+                }
+
+                return `
+                    <div class="student-item">
+                        <div class="student-header" onclick="this.nextElementSibling.classList.toggle('open')">
+                            <div>${i+1}. ${s.name}</div>
+                            <div class="student-score">${s.score} <span style="font-size:0.8em; color:var(--text-light)">/ ${s.maxScore}</span></div>
+                        </div>
+                        <div class="student-details">
+                            <div style="display: flex; gap: 1rem; margin-bottom: 1rem;">
+                                <span class="badge" style="background:#dcfce7; color:#166534">Correct: ${s.correct}</span>
+                                <span class="badge" style="background:#fee2e2; color:#991b1b">Incorrect: ${s.incorrect}</span>
+                                <span class="badge" style="background:#f1f5f9; color:#475569">Unattempted: ${s.unattempted}</span>
+                            </div>
+                            <div>
+                                <strong>Critical Chapters to Improve:</strong> 
+                                ${s.weakChapters.length > 0 ? s.weakChapters.slice(0,3).map(w => `<span class="badge badge-chapter" style="margin-right:0.5rem">${w.name}</span>`).join('') : 'None! Great job.'}
+                            </div>
+                            ${planHtml}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            document.getElementById('student-list-container').innerHTML = studentHtml;
+        }
+
+        // --- Export ---
+        function exportReport() {
+            const wb = XLSX.utils.book_new();
+
+            // Sheet 1: Summary
+            const { chapters, students } = AppState.results;
+            const summaryData = [
+                ['Metric', 'Value'],
+                ['Total Students', students.length],
+                ['Total Questions', AppState.questionPaper.length],
+                ['Average Score', document.getElementById('stat-avg-score').innerText],
+                ['Overall Accuracy', document.getElementById('stat-accuracy').innerText]
+            ];
+            const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
+            XLSX.utils.book_append_sheet(wb, wsSummary, "Summary");
+
+            // Sheet 2: Student Scores
+            const studentDataSheet = students.map(s => ({
+                Name: s.name,
+                Score: s.score,
+                Correct: s.correct,
+                Incorrect: s.incorrect,
+                Unattempted: s.unattempted,
+                'Weakest Chapter': s.weakChapters.length ? s.weakChapters[0].name : '-'
+            }));
+            const wsStudents = XLSX.utils.json_to_sheet(studentDataSheet);
+            XLSX.utils.book_append_sheet(wb, wsStudents, "Student Results");
+
+            // Sheet 3: Chapter Analysis
+            const chapterDataSheet = Object.keys(chapters).map(ch => {
+                const c = chapters[ch];
+                const totalAtt = c.correct + c.incorrect;
+                return {
+                    Chapter: ch,
+                    'Total Questions Attempted (Batch)': totalAtt,
+                    'Total Correct': c.correct,
+                    'Total Incorrect': c.incorrect,
+                    'Error Rate (%)': totalAtt ? ((c.incorrect / totalAtt) * 100).toFixed(2) : 0
+                };
+            });
+            const wsChapters = XLSX.utils.json_to_sheet(chapterDataSheet);
+            XLSX.utils.book_append_sheet(wb, wsChapters, "Chapter Analysis");
+
+            XLSX.writeFile(wb, "BioRivet_NEET_Diagnostic_Report.xlsx");
+        }
+
+    </script>
+</body>
+</html>

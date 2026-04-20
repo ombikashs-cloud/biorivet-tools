@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BioRivet – Institute Intelligence Tools</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --navy: #0f172a;
+  --blue: #2563eb;
+  --blue-hover: #1d4ed8;
+  --light-blue: #eff6ff;
+  --green: #15803d;
+  --light-green: #f0fdf4;
+  --orange: #c2410c;
+  --light-orange: #fff7ed;
+  --red: #b91c1c;
+  --light-red: #fef2f2;
+  --purple: #6d28d9;
+  --light-purple: #faf5ff;
+  --teal: #0f766e;
+  --light-teal: #f0fdfa;
+  --grey: #f8fafc;
+  --border: #e2e8f0;
+  --text: #0f172a;
+  --muted: #64748b;
+  --glass: rgba(255, 255, 255, 0.7);
+}
+body {
+  font-family: 'Inter', sans-serif;
+  background: var(--grey);
+  color: var(--text);
+  overflow-x: hidden;
+}
+
+/* ── TOPBAR ── */
+.topbar {
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: white;
+  padding: 0 32px;
+  display: flex;
+  align-items: center;
+  height: 64px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+  color: white;
+  margin-right: 48px;
+}
+.logo-box {
+  width: 36px;
+  height: 36px;
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  color: white;
+  font-size: 14px;
+  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.3);
+}
+.brand-name { font-size: 17px; font-weight: 700; letter-spacing: -0.02em; }
+.brand-tag { font-size: 11px; opacity: 0.7; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; }
+.nav-links { display: flex; gap: 8px; flex: 1; }
+.nav-link {
+  color: rgba(255,255,255,0.7);
+  text-decoration: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+.nav-link:hover, .nav-link.active { background: rgba(255,255,255,0.1); color: white; }
+.nav-cta {
+  margin-left: auto;
+  background: white;
+  color: var(--navy);
+  padding: 8px 20px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.2s;
+}
+.nav-cta:hover { background: #f1f5f9; transform: translateY(-1px); }
+
+/* ── HERO ── */
+.hero {
+  background: radial-gradient(circle at top right, #1e293b, #0f172a);
+  color: white;
+  padding: 80px 32px 64px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+.hero::before {
+  content: '';
+  position: absolute;
+  width: 600px; height: 600px;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.15) 0%, transparent 70%);
+  top: -200px; left: 50%; transform: translateX(-50%);
+  pointer-events: none;
+}
+.hero-badge {
+  display: inline-block;
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  color: #60a5fa;
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 24px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+.hero h1 {
+  font-size: 48px;
+  font-weight: 800;
+  line-height: 1.15;
+  margin-bottom: 20px;
+  letter-spacing: -0.03em;
+}
+.hero h1 span {
+  background: linear-gradient(to right, #60a5fa, #a78bfa);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.hero p {
+  font-size: 18px;
+  color: #94a3b8;
+  max-width: 640px;
+  margin: 0 auto 40px;
+  line-height: 1.6;
+}
+.hero-btns { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+.hero-btn {
+  padding: 14px 28px;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  border: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.btn-white { background: #3b82f6; color: white; box-shadow: 0 4px 14px rgba(59, 130, 246, 0.4); }
+.btn-white:hover { background: #2563eb; transform: translateY(-2px); box-shadow: 0 6px 20px rgba(59, 130, 246, 0.5); }
+.btn-outline { background: rgba(255,255,255,0.05); color: white; border: 1px solid rgba(255,255,255,0.2); }
+.btn-outline:hover { background: rgba(255,255,255,0.1); transform: translateY(-2px); }
+
+/* ── STATS BAR ── */
+.stats-bar {
+  background: white;
+  border-bottom: 1px solid var(--border);
+  padding: 24px 32px;
+  display: flex;
+  gap: 64px;
+  justify-content: center;
+  flex-wrap: wrap;
+  position: relative;
+  z-index: 10;
+  box-shadow: 0 10px 30px -10px rgba(0,0,0,0.05);
+}
+.stat { text-align: center; }
+.stat-val { font-size: 32px; font-weight: 800; color: var(--navy); line-height: 1; margin-bottom: 6px; }
+.stat-lbl { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+
+/* ── MAIN LAYOUT ── */
+.main { padding: 64px 32px; max-width: 1280px; margin: 0 auto; }
+
+/* ── SECTION HEADERS ── */
+.section-header { margin-bottom: 32px; }
+.section-title { font-size: 24px; font-weight: 800; color: var(--navy); margin-bottom: 8px; display: flex; align-items: center; gap: 10px; }
+.section-sub { font-size: 15px; color: var(--muted); }
+
+/* ── TOOL GRID ── */
+.tool-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 24px;
+  margin-bottom: 64px;
+}
+
+/* ── TOOL CARD ── */
+.tool-card {
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03);
+  position: relative;
+}
+.tool-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);
+  border-color: #cbd5e1;
+}
+.tool-card.featured { border: 2px solid var(--blue); }
+.featured-ribbon {
+  position: absolute; top: 16px; right: 16px;
+  background: var(--blue); color: white; font-size: 11px; font-weight: 700;
+  padding: 4px 10px; border-radius: 20px; letter-spacing: 0.5px; z-index: 2;
+  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.3);
+}
+.card-color-bar { height: 6px; width: 100%; }
+.card-body { padding: 24px; flex: 1; display: flex; flex-direction: column; }
+.card-icon {
+  width: 56px; height: 56px; border-radius: 12px; display: flex; align-items: center;
+  justify-content: center; font-size: 24px; margin-bottom: 20px; flex-shrink: 0;
+  box-shadow: inset 0 2px 4px rgba(255,255,255,0.5), 0 4px 6px rgba(0,0,0,0.05);
+}
+.card-meta { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+.meta-badge { font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 8px; }
+.card-title { font-size: 18px; font-weight: 700; color: var(--navy); margin-bottom: 10px; }
+.card-desc { font-size: 14px; color: var(--muted); line-height: 1.6; flex: 1; margin-bottom: 20px; }
+.card-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 24px; }
+.tag { font-size: 11px; font-weight: 500; background: var(--grey); color: #475569; padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border); }
+.card-footer { display: flex; gap: 12px; align-items: center; padding-top: 20px; border-top: 1px solid var(--border); margin-top: auto; }
+.card-btn {
+  flex: 1; padding: 10px; border-radius: 8px; border: none; font-size: 14px; font-weight: 600;
+  cursor: pointer; text-decoration: none; text-align: center; transition: all 0.2s;
+}
+.card-btn-primary { background: var(--navy); color: white; }
+.card-btn-primary:hover { background: #0f172a; transform: translateY(-1px); box-shadow: 0 4px 10px rgba(15, 23, 42, 0.2); }
+.card-btn-locked { background: #f1f5f9; color: #94a3b8; cursor: default; }
+.card-status { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--navy); }
+.dot-live { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; animation: pulse 2s infinite; box-shadow: 0 0 10px rgba(34, 197, 94, 0.6); }
+.dot-plan { width: 8px; height: 8px; border-radius: 50%; background: #cbd5e1; }
+
+@keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); } 70% { box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); } 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); } }
+
+/* ── COMING SOON CARD ── */
+.tool-card.coming-soon { background: #f8fafc; border: 1px dashed #cbd5e1; }
+.tool-card.coming-soon .card-body { opacity: 0.7; }
+.tool-card.coming-soon:hover { transform: none; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); border-color: #94a3b8; }
+.tool-card.coming-soon .card-btn-locked { pointer-events: none; }
+
+/* ── ADD TOOL CARD ── */
+.add-card {
+  background: transparent; border: 2px dashed #cbd5e1; border-radius: 16px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 40px 24px; cursor: pointer; transition: all 0.2s; text-decoration: none; min-height: 380px;
+}
+.add-card:hover { background: rgba(255,255,255,0.5); border-color: var(--blue); }
+.add-icon { font-size: 40px; margin-bottom: 16px; opacity: 0.4; transition: opacity 0.2s; }
+.add-card:hover .add-icon { opacity: 0.8; }
+.add-label { font-size: 16px; font-weight: 700; color: var(--navy); margin-bottom: 8px; }
+.add-sub { font-size: 13px; color: var(--muted); text-align: center; line-height: 1.5; }
+
+/* ── PROMPT SECTION ── */
+.prompt-card { background: white; border-radius: 16px; border: 1px solid var(--border); padding: 32px; margin-bottom: 48px; box-shadow: 0 4px 20px rgba(0,0,0,0.03); }
+.prompt-tabs { display: flex; gap: 8px; margin-bottom: 24px; flex-wrap: wrap; }
+.ptab {
+  padding: 10px 20px; border-radius: 8px; border: 1px solid var(--border); background: var(--grey);
+  cursor: pointer; font-size: 14px; font-weight: 600; color: var(--muted); transition: all 0.2s;
+}
+.ptab:hover { background: #e2e8f0; color: var(--text); }
+.ptab.active { background: var(--navy); color: white; border-color: var(--navy); box-shadow: 0 4px 10px rgba(15, 23, 42, 0.2); }
+.prompt-box {
+  background: #0f172a; color: #f8fafc; border-radius: 12px; padding: 24px; font-family: 'JetBrains Mono', 'Courier New', monospace;
+  font-size: 14px; line-height: 1.7; max-height: 400px; overflow-y: auto; position: relative;
+  box-shadow: inset 0 2px 10px rgba(0,0,0,0.2);
+}
+.prompt-box .kw { color: #38bdf8; font-weight: bold; }
+.prompt-box .str { color: #a78bfa; }
+.prompt-box .cm { color: #64748b; font-style: italic; }
+.copy-btn {
+  position: absolute; top: 16px; right: 16px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+  color: white; padding: 6px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; transition: background 0.2s;
+}
+.copy-btn:hover { background: rgba(255,255,255,0.2); }
+
+/* ── ROADMAP ── */
+.roadmap { display: flex; gap: 0; margin-bottom: 48px; overflow-x: auto; padding: 16px 0; }
+.rm-item { flex: 1; min-width: 160px; text-align: center; position: relative; padding: 0 12px; }
+.rm-item:not(:last-child)::after { content: ''; position: absolute; right: -50%; top: 20px; width: 100%; height: 2px; background: var(--border); z-index: 1; }
+.rm-item.done:not(:last-child)::after { background: var(--green); }
+.rm-circle {
+  width: 40px; height: 40px; border-radius: 50%; margin: 0 auto 12px; display: flex; align-items: center; justify-content: center;
+  font-size: 16px; font-weight: 700; position: relative; z-index: 2; border: 4px solid var(--grey);
+}
+.rm-done { background: var(--green); color: white; }
+.rm-active { background: var(--blue); color: white; box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.2); }
+.rm-future { background: white; color: #94a3b8; border-color: #cbd5e1; }
+.rm-label { font-size: 14px; font-weight: 700; color: var(--navy); }
+.rm-sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+/* ── FILE STRUCTURE ── */
+.file-tree {
+  background: #0f172a; color: #f8fafc; border-radius: 12px; padding: 24px; font-family: 'JetBrains Mono', 'Courier New', monospace;
+  font-size: 14px; line-height: 2; box-shadow: inset 0 2px 10px rgba(0,0,0,0.2);
+}
+.ft-folder { color: #fcd34d; font-weight: bold; }
+.ft-html { color: #4ade80; }
+.ft-note { color: #64748b; font-style: italic; }
+
+/* ── FOOTER ── */
+.footer {
+  background: var(--navy); color: rgba(255,255,255,0.6); text-align: center; padding: 32px;
+  font-size: 14px; border-top: 1px solid rgba(255,255,255,0.1);
+}
+.footer strong { color: white; }
+
+@media(max-width:768px){
+  .hero h1 { font-size: 36px; }
+  .hero p { font-size: 16px; }
+  .stats-bar { gap: 32px; padding: 20px; }
+  .main { padding: 40px 20px; }
+  .topbar { padding: 0 20px; }
+  .nav-links { display: none; }
+  .tool-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <a class="brand" href="#">
+    <div class="logo-box">BR</div>
+    <div>
+      <div class="brand-name">BioRivet Tools</div>
+    </div>
+  </a>
+  <div class="nav-links">
+    <a class="nav-link active" href="#tools">Tools</a>
+    <a class="nav-link" href="#prompts">Prompts</a>
+    <a class="nav-link" href="#roadmap">Roadmap</a>
+    <a class="nav-link" href="#structure">File Structure</a>
+  </div>
+  <a class="nav-cta" href="mailto:you@biorivet.com">Contact Support</a>
+</div>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-badge">NEET Institute Intelligence Platform</div>
+  <h1>AI Tools for Smarter<br><span>Coaching Institutes</span></h1>
+  <p>Upload test data. Get diagnostic reports. Identify concept gaps. Reduce student dropout. Built for Tier 2 NEET institute owners who want batch intelligence, not just mark sheets.</p>
+  <div class="hero-btns">
+    <a class="hero-btn btn-white" href="#tools">Open Tools Setup →</a>
+    <a class="hero-btn btn-outline" href="#roadmap">View Roadmap</a>
+  </div>
+</div>
+
+<!-- STATS BAR -->
+<div class="stats-bar">
+  <div class="stat"><div class="stat-val">3</div><div class="stat-lbl">Live Tools</div></div>
+  <div class="stat"><div class="stat-val">2</div><div class="stat-lbl">In Pipeline</div></div>
+  <div class="stat"><div class="stat-val">30</div><div class="stat-lbl">NEET PYQs Loaded</div></div>
+  <div class="stat"><div class="stat-val">0</div><div class="stat-lbl">Coding Required</div></div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- ── TOOLS SECTION ── -->
+  <div id="tools">
+    <div class="section-header">
+      <div class="section-title">🧰 Live & Planned Tools</div>
+      <div class="section-sub">Each tool opens as a standalone file — no login, no backend needed.</div>
+    </div>
+
+    <div class="tool-grid">
+
+      <!-- TOOL 1: DIAGNOSTIC (LIVE) -->
+      <div class="tool-card featured">
+        <div class="featured-ribbon">LIVE</div>
+        <div class="card-color-bar" style="background:linear-gradient(90deg,#1e3a8a,#3b82f6)"></div>
+        <div class="card-body">
+          <div class="card-icon" style="background:#eff6ff; color:#2563eb;">📊</div>
+          <div class="card-meta">
+            <span class="meta-badge" style="background:#eff6ff;color:#1e40af">B2B</span>
+            <span class="meta-badge" style="background:#f0fdf4;color:#166534">Free</span>
+            <span class="meta-badge" style="background:#fef3c7;color:#92400e">Human Physiology</span>
+          </div>
+          <div class="card-title">NEET Diagnostic Tool</div>
+          <div class="card-desc">Upload any question paper with answer key → upload student OMR answers → get full diagnostic report with chapter-wise error analysis, individual student action plans, and batch intelligence insights. Export to Excel.</div>
+          <div class="card-tags">
+            <span class="tag">MCQ Analysis</span>
+            <span class="tag">Concept Gap Mapping</span>
+            <span class="tag">Excel Export</span>
+          </div>
+          <div class="card-footer">
+            <a href="BioRivet_Diagnostic_Tool_v2 (1).html" class="card-btn card-btn-primary">Open Tool →</a>
+            <div class="card-status"><div class="dot-live"></div> Live</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TOOL 2: DROPOUT TRACKER (LIVE) -->
+      <div class="tool-card">
+        <div class="featured-ribbon" style="background: #ea580c;">LIVE</div>
+        <div class="card-color-bar" style="background:linear-gradient(90deg,#c2410c,#f97316)"></div>
+        <div class="card-body">
+          <div class="card-icon" style="background:#fff7ed; color:#ea580c;">⚠️</div>
+          <div class="card-meta">
+            <span class="meta-badge" style="background:#eff6ff;color:#1e40af">B2B</span>
+            <span class="meta-badge" style="background:#fff7ed;color:#c2410c">Intervention</span>
+          </div>
+          <div class="card-title">Student Dropout Risk Tracker</div>
+          <div class="card-desc">Flag at-risk students before they leave. Upload attendance, test scores, and fee status. Get a risk score per student, early warning alerts, and auto-generated intervention plans. Stop silent revenue bleed.</div>
+          <div class="card-tags">
+            <span class="tag">Dropout Prediction</span>
+            <span class="tag">Risk Scoring</span>
+            <span class="tag">Revenue Protection</span>
+          </div>
+          <div class="card-footer">
+            <a href="dropout-tracker.html" class="card-btn card-btn-primary">Open Tool →</a>
+            <div class="card-status"><div class="dot-live"></div> Live</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TOOL 3: DIFFICULTY ANALYSER (LIVE) -->
+      <div class="tool-card">
+        <div class="featured-ribbon" style="background: #9333ea;">LIVE</div>
+        <div class="card-color-bar" style="background:linear-gradient(90deg,#7e22ce,#a855f7)"></div>
+        <div class="card-body">
+          <div class="card-icon" style="background:#faf5ff; color:#9333ea;">🎯</div>
+          <div class="card-meta">
+            <span class="meta-badge" style="background:#eff6ff;color:#1e40af">B2B</span>
+            <span class="meta-badge" style="background:#faf5ff;color:#7e22ce">Quality Control</span>
+          </div>
+          <div class="card-title">Test Paper Difficulty Analyser</div>
+          <div class="card-desc">Upload any test paper and get an instant difficulty audit. Chapter-wise difficulty distribution, paper quality score, easy/medium/hard balance, and recommendations for improving paper design before printing.</div>
+          <div class="card-tags">
+            <span class="tag">Paper Design</span>
+            <span class="tag">Difficulty Mapping</span>
+            <span class="tag">Quality Score</span>
+          </div>
+          <div class="card-footer">
+            <a href="difficulty-analyser.html" class="card-btn card-btn-primary">Open Tool →</a>
+            <div class="card-status"><div class="dot-live"></div> Live</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TOOL 4: SCORE PREDICTOR (PLANNED) -->
+      <div class="tool-card coming-soon">
+        <div class="card-color-bar" style="background:linear-gradient(90deg,#0f766e,#14b8a6)"></div>
+        <div class="card-body">
+          <div class="card-icon" style="background:#f0fdfa; color: #0f766e;">📈</div>
+          <div class="card-meta">
+            <span class="meta-badge" style="background:#f0fdf4;color:#15803d">B2C</span>
+            <span class="meta-badge" style="background:#f8fafc;color:#64748b">Planned</span>
+          </div>
+          <div class="card-title">NEET Score Predictor</div>
+          <div class="card-desc">Students enter chapter-wise practice scores, study hours, and revision cycles. Get a predicted NEET score range, percentile estimate, and a personalised focus plan.</div>
+          <div class="card-tags">
+            <span class="tag">Score Prediction</span>
+            <span class="tag">Student-Facing</span>
+          </div>
+          <div class="card-footer">
+            <button class="card-btn card-btn-locked" disabled>Planned</button>
+            <div class="card-status"><div class="dot-plan"></div> Planned</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TOOL 5: BATCH COMPARISON (PLANNED) -->
+      <div class="tool-card coming-soon">
+        <div class="card-color-bar" style="background:linear-gradient(90deg,#b91c1c,#ef4444)"></div>
+        <div class="card-body">
+          <div class="card-icon" style="background:#fef2f2; color: #b91c1c;">⚖️</div>
+          <div class="card-meta">
+            <span class="meta-badge" style="background:#eff6ff;color:#1e40af">B2B</span>
+            <span class="meta-badge" style="background:#f8fafc;color:#64748b">Planned</span>
+          </div>
+          <div class="card-title">Batch Comparison Tool</div>
+          <div class="card-desc">Compare two or more batches side by side. Upload their diagnostic data and get a head-to-head chapter performance table and score distribution.</div>
+          <div class="card-tags">
+            <span class="tag">Multi-Batch</span>
+            <span class="tag">Trends</span>
+          </div>
+          <div class="card-footer">
+            <button class="card-btn card-btn-locked" disabled>Planned</button>
+            <div class="card-status"><div class="dot-plan"></div> Planned</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ADD NEW TOOL CARD -->
+      <a class="add-card" href="#prompts">
+        <div class="add-icon">✨</div>
+        <div class="add-label">Build a New Tool</div>
+        <div class="add-sub">Use the prompts below to build in<br>Antigravity and add it here</div>
+      </a>
+
+    </div>
+  </div>
+
+  <!-- ── ROADMAP ── -->
+  <div id="roadmap">
+    <div class="section-header">
+      <div class="section-title">🗺 Build Roadmap</div>
+      <div class="section-sub">Tracking progress of the BioRivet platform rollout.</div>
+    </div>
+
+    <div class="roadmap">
+      <div class="rm-item done">
+        <div class="rm-circle rm-done">✓</div>
+        <div class="rm-label">Diagnostic Tool</div>
+        <div class="rm-sub">Tool 1 Live</div>
+      </div>
+      <div class="rm-item done">
+        <div class="rm-circle rm-done">✓</div>
+        <div class="rm-label">Dropout Tracker</div>
+        <div class="rm-sub">Tool 2 Live</div>
+      </div>
+      <div class="rm-item done">
+        <div class="rm-circle rm-done">✓</div>
+        <div class="rm-label">Difficulty Analyser</div>
+        <div class="rm-sub">Tool 3 Live</div>
+      </div>
+      <div class="rm-item done">
+        <div class="rm-circle rm-active">4</div>
+        <div class="rm-label">First Demo</div>
+        <div class="rm-sub">Show to owner</div>
+      </div>
+      <div class="rm-item">
+        <div class="rm-circle rm-future">5</div>
+        <div class="rm-label">First Client</div>
+        <div class="rm-sub">₹5–10K paid</div>
+      </div>
+      <div class="rm-item">
+        <div class="rm-circle rm-future">6</div>
+        <div class="rm-label">Full Suite</div>
+        <div class="rm-sub">All 5 tools live</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── FILE STRUCTURE ── -->
+  <div id="structure">
+    <div class="section-header">
+      <div class="section-title">📁 File Structure</div>
+      <div class="section-sub">Keep all tools in one folder. Add new tools any time.</div>
+    </div>
+
+    <div class="prompt-card" style="padding: 0; background: transparent; border: none; box-shadow: none;">
+      <div class="file-tree">
+<span class="ft-folder">biorivet-tools/</span>
+│
+├── <span class="ft-html">index.html</span>                          <span class="ft-note">← This master website (you are here)</span>
+│
+├── <span class="ft-html">BioRivet_Diagnostic_Tool_v2 (1).html</span><span class="ft-note">← Tool 1 (LIVE)</span>
+├── <span class="ft-html">dropout-tracker.html</span>                <span class="ft-note">← Tool 2 (LIVE)</span>
+├── <span class="ft-html">difficulty-analyser.html</span>            <span class="ft-note">← Tool 3 (LIVE)</span>
+├── <span class="ft-html">score-predictor.html</span>                <span class="ft-note">← Tool 4</span>
+├── <span class="ft-html">batch-comparison.html</span>               <span class="ft-note">← Tool 5</span>
+│
+└── <span class="ft-note">← Add any new tool here. Then add a card in index.html.</span>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<div class="footer">
+  <strong>BioRivet</strong> &nbsp;·&nbsp; Know More. Fear Less. &nbsp;·&nbsp; biorivet.com<br>
+  <span style="color: #94a3b8; font-size: 12px; margin-top: 8px; display: block;">Institute Intelligence Tools — Built for NEET Coaching Owners</span>
+</div>
+
+<script>
+// Smooth scroll
+document.querySelectorAll('a[href^="#"]').forEach(a => {
+  a.addEventListener('click', function(e) {
+    const target = document.querySelector(this.getAttribute('href'));
+    if(target) { 
+      e.preventDefault(); 
+      target.scrollIntoView({behavior:'smooth', block:'start'}); 
+    }
+  });
+});
+</script>
+</body>
+</html>

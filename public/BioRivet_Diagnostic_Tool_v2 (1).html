@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BioRivet – NEET Diagnostic Tool</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,sans-serif;background:#f0f4f8;color:#1a1a2e;font-size:14px}
+.wrap{max-width:1140px;margin:0 auto;padding:20px}
+.header{background:#1F3864;color:white;padding:16px 22px;border-radius:10px;margin-bottom:20px;display:flex;align-items:center;gap:14px}
+.logo{background:white;color:#1F3864;font-weight:700;font-size:13px;width:38px;height:38px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.header h1{font-size:17px;font-weight:700}
+.header p{font-size:11px;opacity:.75;margin-top:2px}
+/* STEP NAV */
+.steps{display:flex;gap:0;margin-bottom:22px;background:white;border-radius:10px;border:1px solid #dde4ef;overflow:hidden}
+.step{flex:1;padding:14px 16px;display:flex;align-items:center;gap:10px;cursor:pointer;border-right:1px solid #dde4ef;position:relative;transition:background .15s}
+.step:last-child{border-right:none}
+.step:hover{background:#f7faff}
+.step.active{background:#1F3864;color:white}
+.step.done{background:#f0f7ee;color:#1B5E20}
+.step.locked{opacity:.45;cursor:default;pointer-events:none}
+.step-num{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0}
+.step.active .step-num{background:white;color:#1F3864}
+.step.done .step-num{background:#43A047;color:white}
+.step:not(.active):not(.done) .step-num{background:#dde4ef;color:#555}
+.step-label{font-size:13px;font-weight:600}
+.step-sub{font-size:11px;opacity:.7}
+/* CARDS */
+.card{background:white;border-radius:10px;border:1px solid #dde4ef;padding:20px;margin-bottom:16px}
+.card-title{font-size:14px;font-weight:700;color:#1F3864;margin-bottom:14px;padding-bottom:8px;border-bottom:2px solid #e8edf5;display:flex;align-items:center;gap:8px}
+.section-hdr{background:#2E5EA8;color:white;padding:8px 16px;border-radius:6px;font-size:13px;font-weight:700;margin-bottom:14px}
+/* UPLOAD ZONES */
+.upload-pair{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.upload-box{border:2px dashed #2E5EA8;border-radius:10px;padding:24px;text-align:center;cursor:pointer;background:#f7faff;transition:background .2s;position:relative}
+.upload-box:hover,.upload-box.drag{background:#dbeeff;border-color:#1F3864}
+.upload-box.loaded{border-style:solid;border-color:#43A047;background:#f0f7ee}
+.upload-icon{font-size:30px;margin-bottom:8px}
+.upload-box h3{font-size:13px;font-weight:700;color:#1F3864;margin-bottom:4px}
+.upload-box p{font-size:11px;color:#666}
+.upload-box .loaded-name{font-size:12px;color:#1B5E20;font-weight:600;margin-top:6px}
+/* FORMAT BOXES */
+.fmt{background:#f7faff;border:1px solid #ccd6e8;border-radius:8px;padding:12px;margin-bottom:12px}
+.fmt code{font-family:'Courier New',monospace;font-size:11px;color:#1F3864;line-height:1.9}
+.fmt-label{font-size:11px;font-weight:700;color:#2E5EA8;margin-bottom:6px}
+/* TABLES */
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{background:#1F3864;color:white;padding:8px 10px;text-align:left;font-size:11px;font-weight:600}
+th.ctr,td.ctr{text-align:center}
+td{padding:7px 10px;border-bottom:1px solid #eef0f5;vertical-align:middle}
+tr:nth-child(even) td{background:#f7f9fc}
+tr:hover td{background:#eef4ff}
+/* BADGES */
+.badge{display:inline-block;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600}
+.b-red{background:#FFEBEE;color:#B71C1C}.b-yellow{background:#FFF8E1;color:#E65100}.b-green{background:#E8F5E9;color:#1B5E20}.b-blue{background:#E3F2FD;color:#0D47A1}
+.ch-badge{display:inline-block;padding:2px 9px;border-radius:10px;font-size:11px;font-weight:600}
+/* BUTTONS */
+.btn{padding:9px 18px;border-radius:6px;border:none;cursor:pointer;font-size:13px;font-weight:600;transition:opacity .15s}
+.btn:hover{opacity:.85}
+.btn-primary{background:#1F3864;color:white}
+.btn-secondary{background:#E3F2FD;color:#0D47A1;border:1px solid #90CAF9}
+.btn-green{background:#E8F5E9;color:#1B5E20;border:1px solid #A5D6A7}
+.btn-orange{background:#FFF3E0;color:#E65100;border:1px solid #FFCC80}
+.btn-xl{padding:12px 28px;font-size:14px;width:100%;margin-top:6px}
+/* METRICS */
+.metric-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}
+.metric{background:#f0f4fb;border-radius:8px;padding:14px}
+.metric .mlabel{font-size:11px;color:#666;margin-bottom:4px}
+.metric .mval{font-size:22px;font-weight:700;color:#1F3864;line-height:1.1}
+.metric .msub{font-size:10px;color:#999;margin-top:2px}
+/* PROGRESS */
+.pbar{height:10px;background:#e8edf5;border-radius:5px;overflow:hidden;min-width:80px}
+.pfill{height:100%;border-radius:5px}
+/* STUDENT ROWS */
+.srow{border:1px solid #dde4ef;border-radius:8px;margin-bottom:6px;overflow:hidden}
+.shdr{display:grid;gap:10px;align-items:center;padding:10px 14px;background:white;cursor:pointer}
+.shdr:hover{background:#f7f9fc}
+.sdetail{padding:12px 14px;background:#f7faff;border-top:1px solid #dde4ef;display:none}
+.sdetail.open{display:block}
+.ans-grid{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px}
+.ans-cell{width:38px;height:38px;display:flex;align-items:center;justify-content:center;border-radius:4px;font-size:11px;font-weight:700;flex-direction:column;gap:1px}
+.ans-ok{background:#E8F5E9;color:#1B5E20}.ans-err{background:#FFEBEE;color:#B71C1C}.ans-blank{background:#f0f0f0;color:#999}
+.qlbl{font-size:8px;opacity:.65}
+/* INSIGHTS */
+.insight{display:flex;gap:12px;align-items:flex-start;padding:13px;border-radius:8px;margin-bottom:8px}
+.idot{width:10px;height:10px;border-radius:50%;flex-shrink:0;margin-top:4px}
+/* NAV TABS inside report */
+.rtabs{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap}
+.rtab{padding:7px 16px;border-radius:6px;border:1.5px solid #ccd6e8;background:white;cursor:pointer;font-size:12px;font-weight:500;color:#555}
+.rtab.active{background:#1F3864;color:white;border-color:#1F3864}
+/* MISC */
+.footer{background:#1F3864;color:#aaa;text-align:center;padding:12px;border-radius:8px;font-size:11px;margin-top:20px}
+.err-msg{color:#B71C1C;font-size:12px;margin-top:6px;padding:8px;background:#FFEBEE;border-radius:6px;display:none}
+.ok-msg{color:#1B5E20;font-size:12px;margin-top:6px;padding:8px;background:#E8F5E9;border-radius:6px;display:none}
+input[type=file]{display:none}
+@media(max-width:700px){.upload-pair{grid-template-columns:1fr}.metric-grid{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="header">
+  <div class="logo">BR</div>
+  <div>
+    <h1>BioRivet – NEET Diagnostic Tool &nbsp;<span style="opacity:.5;font-weight:400;font-size:13px">Generic Edition</span></h1>
+    <p>Upload any question paper + answer key → Upload student OMR data → Get full diagnostic report instantly</p>
+  </div>
+</div>
+
+<!-- STEP NAV -->
+<div class="steps">
+  <div class="step active" id="step1-nav" onclick="gotoStep(1)">
+    <div class="step-num">1</div>
+    <div><div class="step-label">Question Paper</div><div class="step-sub">Upload Excel with answer key</div></div>
+  </div>
+  <div class="step locked" id="step2-nav" onclick="gotoStep(2)">
+    <div class="step-num">2</div>
+    <div><div class="step-label">Student Answers</div><div class="step-sub">Upload CSV or Excel</div></div>
+  </div>
+  <div class="step locked" id="step3-nav" onclick="gotoStep(3)">
+    <div class="step-num">3</div>
+    <div><div class="step-label">Diagnostic Report</div><div class="step-sub">Chapter analysis + action plans</div></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════ STEP 1 ═══════════════════════════ -->
+<div id="step1-content">
+  <div class="card">
+    <div class="card-title">📋 Question Paper Format (Excel)</div>
+    <div class="fmt">
+      <div class="fmt-label">Required columns (exact header names — case insensitive):</div>
+      <code>
+        Q No &nbsp;| Question &nbsp;| Chapter &nbsp;| Sub-Concept &nbsp;| Error Type &nbsp;| Answer<br>
+        Q1 &nbsp;&nbsp; | Which enzyme... | Digestion | Enzyme Activation | Memory | B<br>
+        Q2 &nbsp;&nbsp; | Chylomicrons... | Digestion | Lipid Absorption  | Memory | A<br>
+        Q3 &nbsp;&nbsp; | Normal BP...    | Circulation | Blood Pressure  | Memory | C
+      </code>
+    </div>
+    <ul style="font-size:12px;color:#555;line-height:2;padding-left:18px">
+      <li><strong>Q No</strong> — Question number (Q1, Q2... or 1, 2...)</li>
+      <li><strong>Question</strong> — The actual text of the question (Recommended)</li>
+      <li><strong>Chapter</strong> — Used to group questions (e.g. Digestion, Circulation)</li>
+      <li><strong>Error Type</strong> — Memory / Conceptual / Application</li>
+      <li><strong>Answer</strong> — Correct answer: A, B, C, or D</li>
+      <li><strong style="color:#2E5EA8">✨ AI Auto-Tagging:</strong> If you only upload the Question text, BioRivet AI can automatically infer the Chapter, Error Type, and Correct Answer!</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <div class="card-title">⬆ Upload Question Paper</div>
+    <div class="upload-box" id="qp-box" onclick="document.getElementById('qp-input').click()"
+      ondragover="dragOver(event,'qp-box')" ondragleave="dragLeave('qp-box')" ondrop="dropFile(event,'qp')">
+      <div class="upload-icon">📊</div>
+      <h3>Click to upload or drag & drop</h3>
+      <p>Excel file (.xlsx or .xls) with questions and answer key</p>
+      <div class="loaded-name" id="qp-name" style="display:none"></div>
+    </div>
+    <input type="file" id="qp-input" accept=".xlsx,.xls,.csv" onchange="loadFile('qp',this)">
+    <div class="err-msg" id="qp-err"></div>
+    <div class="ok-msg"  id="qp-ok"></div>
+  </div>
+
+  <div class="card" id="qp-preview-card" style="display:none">
+    <div class="card-title" id="qp-preview-title">✅ Question Bank Preview</div>
+    
+    <div id="ai-tag-prompt" style="display:none; background:#FFF8E1; border:1px solid #FFCC80; border-radius:8px; padding:16px; margin-bottom:16px;">
+      <h4 style="color:#E65100; margin-bottom:6px; font-size:13px; font-weight:700;">✨ Missing Data Detected</h4>
+      <p style="color:#5D4037; font-size:12px; margin-bottom:12px; line-height:1.5;">Some questions are missing Chapters, Error Types, or Answers. Would you like BioRivet AI to automatically read your questions and fill in the missing fields?</p>
+      <div style="display:flex; gap:10px; align-items:center;">
+        <button class="btn btn-primary" onclick="autoTagQuestions()" id="ai-tag-btn">✨ Auto-Tag with AI</button>
+        <span id="ai-tag-status" style="font-size:12px; font-weight:600; color:#1F3864;"></span>
+      </div>
+    </div>
+
+    <div style="overflow-x:auto;margin-bottom:14px"><table><thead id="qp-preview-head"></thead><tbody id="qp-preview-body"></tbody></table></div>
+    <button class="btn btn-primary" onclick="gotoStep(2)" id="next-step-btn">Next: Upload Student Answers →</button>
+  </div>
+
+  <div style="margin-top:8px;display:flex;gap:10px;flex-wrap:wrap">
+    <button class="btn btn-orange" onclick="downloadQPTemplate()">⬇ Download Question Paper Template</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════ STEP 2 ═══════════════════════════ -->
+<div id="step2-content" style="display:none">
+  <div class="card">
+    <div class="card-title">📝 Student Answer Sheet Format</div>
+    <div class="fmt">
+      <div class="fmt-label">CSV or Excel — one row per student, one column per question:</div>
+      <code>
+        Student Name, Q1, Q2, Q3, Q4 ... Q<em>n</em><br>
+        Aarav Singh,  B,  A,  C,  D  ... B<br>
+        Priya Sharma, A,  C,  B,  A  ... C
+      </code>
+    </div>
+    <ul style="font-size:12px;color:#555;line-height:2;padding-left:18px">
+      <li>First column must be student name, first row must be header</li>
+      <li>Answer columns must match the Q Nos in your question paper (Q1, Q2... or 1, 2...)</li>
+      <li>Answers: A, B, C, or D — leave blank if unanswered</li>
+      <li>Number of answer columns must equal number of questions</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <div class="card-title">⬆ Upload Student Answers</div>
+    <div class="upload-box" id="sa-box" onclick="document.getElementById('sa-input').click()"
+      ondragover="dragOver(event,'sa-box')" ondragleave="dragLeave('sa-box')" ondrop="dropFile(event,'sa')">
+      <div class="upload-icon">📂</div>
+      <h3>Click to upload or drag & drop</h3>
+      <p>CSV or Excel file with student OMR answers</p>
+      <div class="loaded-name" id="sa-name" style="display:none"></div>
+    </div>
+    <input type="file" id="sa-input" accept=".xlsx,.xls,.csv" onchange="loadFile('sa',this)">
+    <div class="err-msg" id="sa-err"></div>
+    <div class="ok-msg"  id="sa-ok"></div>
+  </div>
+
+  <div class="card" id="sa-preview-card" style="display:none">
+    <div class="card-title">✅ Student Data Preview</div>
+    <div style="overflow-x:auto;margin-bottom:14px"><table><thead id="sa-preview-head"></thead><tbody id="sa-preview-body"></tbody></table></div>
+    <button class="btn btn-primary btn-xl" onclick="generateReport()">🔍 Generate Diagnostic Report →</button>
+  </div>
+
+  <div style="margin-top:8px;display:flex;gap:10px;flex-wrap:wrap">
+    <button class="btn btn-secondary" onclick="gotoStep(1)">← Back</button>
+    <button class="btn btn-orange" onclick="downloadSATemplate()">⬇ Download Student Answer Template</button>
+    <button class="btn btn-green"   onclick="loadSampleStudents()">Load Sample Students (Demo)</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════ STEP 3 ═══════════════════════════ -->
+<div id="step3-content" style="display:none">
+
+  <div class="metric-grid" id="summary-cards"></div>
+
+  <div style="display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
+    <div class="rtab active" id="rtab-a" onclick="showRTab('a')">Section A · Chapter Analysis</div>
+    <div class="rtab" id="rtab-b" onclick="showRTab('b')">Section B · Students</div>
+    <div class="rtab" id="rtab-c" onclick="showRTab('c')">Section C · Batch Insights</div>
+    <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-green" onclick="exportExcel()">⬇ Export Full Report (.xlsx)</button>
+      <button class="btn btn-secondary" onclick="resetTool()">↩ New Analysis</button>
+    </div>
+  </div>
+
+  <div id="rpt-a">
+    <div class="card">
+      <div class="section-hdr">Section A — Chapter-Wise Error Analysis (Whole Batch)</div>
+      <div style="overflow-x:auto"><table>
+        <tr><th>Chapter</th><th>Questions</th><th class="ctr">Total Wrong</th><th class="ctr">Max Possible</th><th class="ctr">Error Rate</th><th style="min-width:150px">Bar</th><th class="ctr">Weakness Level</th></tr>
+        <tbody id="rpt-a-body"></tbody>
+      </table></div>
+    </div>
+  </div>
+
+  <div id="rpt-b" style="display:none">
+    <div class="card">
+      <div class="section-hdr">Section B — Individual Student Diagnosis & 3-Day Action Plan</div>
+      <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;align-items:center">
+        <span style="font-size:12px;color:#666">Sort:</span>
+        <button class="btn btn-secondary" onclick="sortStudents('name')"  style="padding:4px 10px;font-size:11px">Name</button>
+        <button class="btn btn-secondary" onclick="sortStudents('score')" style="padding:4px 10px;font-size:11px">Score ↑</button>
+        <button class="btn btn-secondary" onclick="sortStudents('wrong')" style="padding:4px 10px;font-size:11px">Wrong ↓</button>
+        <button class="btn btn-secondary" onclick="sortStudents('pri')"   style="padding:4px 10px;font-size:11px">Priority</button>
+      </div>
+      <div style="background:#f0f4fb;border-radius:6px;padding:8px 14px;margin-bottom:8px;font-size:11px;font-weight:700;color:#555" id="rpt-b-header"></div>
+      <div id="rpt-b-body"></div>
+    </div>
+  </div>
+
+  <div id="rpt-c" style="display:none">
+    <div class="card">
+      <div class="section-hdr">Section C — Batch Intelligence Summary</div>
+      <div id="rpt-c-body"></div>
+    </div>
+    <div class="footer">Powered by BioRivet AI Diagnostic &nbsp;·&nbsp; Know More. Fear Less. &nbsp;·&nbsp; biorivet.com</div>
+  </div>
+
+</div><!-- /step3 -->
+</div><!-- /wrap -->
+
+<script>
+// ══════════════════════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════════════════════
+let QP   = null;   // {questions:[{qno,text,chapter,sub,errorType,ans}], chapGroups:{ch:[indices]}, chapColors:{}}
+let SA   = null;   // [{name, answers:[A/B/C/D...]}]
+let RPT  = null;   // computed report
+let SORT_KEY='name', SORT_DIR=1;
+
+const PALETTE = [
+  ['#FFF2CC','#7B6000'],['#DDEBF7','#1A3A5C'],['#E2EFDA','#1E4620'],
+  ['#FCE4D6','#7B2D00'],['#EDE7F6','#4A1E8C'],['#FCE4EC','#7B003C'],
+  ['#E8F5E9','#1B5E20'],['#E3F2FD','#0D47A1'],['#FFF8E1','#5D4037'],
+  ['#F3E5F5','#6A1B9A'],['#E0F7FA','#00695C'],['#FBE9E7','#BF360C'],
+];
+
+// ══════════════════════════════════════════════════════════════
+// STEP NAVIGATION
+// ══════════════════════════════════════════════════════════════
+function gotoStep(n) {
+  [1,2,3].forEach(i => {
+    document.getElementById('step'+i+'-content').style.display = i===n?'':'none';
+  });
+  [1,2,3].forEach(i => {
+    const el = document.getElementById('step'+i+'-nav');
+    el.classList.remove('active','done','locked');
+    if(i < n) el.classList.add('done');
+    else if(i===n) el.classList.add('active');
+    else el.classList.add('locked');
+  });
+}
+
+function resetTool() { QP=null; SA=null; RPT=null; location.reload(); }
+
+// ══════════════════════════════════════════════════════════════
+// FILE READING (SheetJS)
+// ══════════════════════════════════════════════════════════════
+function loadFile(type, input) {
+  if(!input.files[0]) return;
+  readFileBytes(input.files[0], type);
+}
+function dropFile(e, type) {
+  e.preventDefault();
+  dragLeave(type==='qp'?'qp-box':'sa-box');
+  if(e.dataTransfer.files[0]) readFileBytes(e.dataTransfer.files[0], type);
+}
+function dragOver(e, id) { e.preventDefault(); document.getElementById(id).classList.add('drag'); }
+function dragLeave(id)   { document.getElementById(id).classList.remove('drag'); }
+
+function readFileBytes(file, type) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = new Uint8Array(e.target.result);
+      const wb   = XLSX.read(data, {type:'array'});
+      const ws   = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+      if(type==='qp') parseQP(rows, file.name);
+      else            parseSA(rows, file.name);
+    } catch(err) { showErr(type, 'Could not read file: '+err.message); }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ══════════════════════════════════════════════════════════════
+// PARSE QUESTION PAPER
+// ══════════════════════════════════════════════════════════════
+function parseQP(rows, fname) {
+  hideMsg('qp');
+  if(rows.length < 2) { showErr('qp','File has fewer than 2 rows.'); return; }
+
+  // Find header row (first row that has "answer" in one of its cells)
+  let hRow = 0;
+  for(let i=0;i<Math.min(rows.length,5);i++) {
+    if(rows[i].some(c => String(c).toLowerCase().includes('answer'))) { hRow=i; break; }
+  }
+  const header = rows[hRow].map(c => String(c).trim().toLowerCase());
+
+  // Map columns
+  const col = name => {
+    const aliases = { qno:['q no','qno','q_no','question no','question number','no','#'],
+                      text:['question','question text','text','description'],
+                      chapter:['chapter','topic','subject'],
+                      sub:['sub-concept','sub concept','subconcept','subtopic'],
+                      errtype:['error type','errortype','error_type','type'],
+                      ans:['answer','correct answer','key','ans'] };
+    const list = aliases[name] || [name];
+    for(const a of list) { const i=header.indexOf(a); if(i>=0) return i; }
+    return -1;
+  };
+
+  const cQno=col('qno'), cText=col('text'), cChap=col('chapter');
+  const cSub=col('sub'), cErr=col('errtype'), cAns=col('ans');
+
+  if(cText<0 && cAns<0) { showErr('qp','Could not find Question text or Answer column. Need at least one.'); return; }
+
+  const questions = [];
+  let needsAutoTag = false;
+
+  for(let r=hRow+1; r<rows.length; r++) {
+    const row = rows[r];
+    const text  = cText>=0 ? String(row[cText]||'').trim() : '';
+    let ans = cAns>=0 ? String(row[cAns]||'').trim().toUpperCase() : '';
+    let chap  = cChap>=0 ? String(row[cChap]||'').trim() : '';
+    const sub   = cSub>=0  ? String(row[cSub]||'').trim() : '';
+    let err   = cErr>=0  ? String(row[cErr]||'').trim() : '';
+
+    if(!ans && !text) continue; // Skip completely empty rows
+
+    const qno  = cQno>=0  ? String(row[cQno]||'').trim()  : 'Q'+(questions.length+1);
+
+    if(!ans || !chap || !err || !['A','B','C','D'].includes(ans)) {
+        if(text) needsAutoTag = true;
+        ans = ans || '?';
+        chap = chap || 'Unknown';
+        err = err || 'Unknown';
+    }
+
+    questions.push({qno, text, chapter:chap, sub, errorType:err, ans, needsTagging: (!ans || ans==='?' || chap==='Unknown' || err==='Unknown')});
+  }
+
+  if(questions.length===0) { showErr('qp','No valid questions found.'); return; }
+
+  QP = {questions, chapGroups:{}, chapColors:{}};
+  buildChapGroups();
+
+  document.getElementById('qp-name').textContent = '✓ '+fname+' — '+questions.length+' questions loaded';
+  document.getElementById('qp-name').style.display='block';
+  document.getElementById('qp-box').classList.add('loaded');
+  
+  if (needsAutoTag) {
+    showOk('qp', questions.length+' questions loaded, but some are missing answers or tags. You can use AI to auto-tag them.');
+  } else {
+    showOk('qp', questions.length+' questions parsed from '+Object.keys(QP.chapGroups).length+' chapters.');
+  }
+  
+  renderQPPreview(needsAutoTag);
+}
+
+function buildChapGroups() {
+  const chapGroups = {}, chapColors = {};
+  let ci=0;
+  QP.questions.forEach((q,i) => {
+    if(!chapGroups[q.chapter]) {
+      chapGroups[q.chapter] = [];
+      const [bg,tc] = PALETTE[ci % PALETTE.length]; ci++;
+      chapColors[q.chapter] = {bg,tc};
+    }
+    chapGroups[q.chapter].push(i);
+  });
+  QP.chapGroups = chapGroups;
+  QP.chapColors = chapColors;
+}
+
+async function autoTagQuestions() {
+  const btn = document.getElementById('ai-tag-btn');
+  const status = document.getElementById('ai-tag-status');
+  btn.disabled = true;
+  
+  const untaggedQuestions = QP.questions.filter(q => q.needsTagging && q.text);
+  if (untaggedQuestions.length === 0) {
+      status.textContent = 'No questions need tagging.';
+      return;
+  }
+
+  status.textContent = `Connecting to AI server... (Processing ${untaggedQuestions.length} questions)`;
+
+  try {
+      const response = await fetch('/api/auto-tag', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ questions: untaggedQuestions.map(q => ({ qno: q.qno, text: q.text })) })
+      });
+
+      const data = await response.json();
+
+      if (data.error) {
+          status.style.color = '#B71C1C';
+          status.textContent = 'Error: ' + data.error;
+          btn.disabled = false;
+          return;
+      }
+
+      // Merge results
+      data.results.forEach(res => {
+          const q = QP.questions.find(q => q.qno === res.qno);
+          if (q) {
+              if (q.chapter === 'Unknown') q.chapter = res.chapter || 'Unknown';
+              if (q.errorType === 'Unknown') q.errorType = res.errorType || 'Memory';
+              if (q.ans === '?') q.ans = res.ans || '?';
+              q.needsTagging = false;
+          }
+      });
+
+      buildChapGroups();
+      renderQPPreview(false);
+      
+      document.getElementById('ai-tag-prompt').style.display = 'none';
+      showOk('qp', '✨ AI Auto-Tagging Complete!');
+
+  } catch (error) {
+      status.style.color = '#B71C1C';
+      status.textContent = 'Network error communicating with backend.';
+      btn.disabled = false;
+  }
+}
+
+function renderQPPreview(needsAutoTag = false) {
+  document.getElementById('qp-preview-card').style.display='';
+  document.getElementById('ai-tag-prompt').style.display = needsAutoTag ? 'block' : 'none';
+  document.getElementById('qp-preview-title').innerHTML = needsAutoTag ? '⚠️ Question Bank Preview (Missing Fields)' : '✅ Question Bank Preview';
+  
+  const head = document.getElementById('qp-preview-head');
+  const body = document.getElementById('qp-preview-body');
+
+  head.innerHTML = '<tr><th>Q No</th><th>Question</th><th>Chapter</th><th>Sub-Concept</th><th>Error Type</th><th class="ctr">Answer</th></tr>';
+  body.innerHTML = '';
+  const show = Math.min(QP.questions.length, 20);
+  QP.questions.slice(0,show).forEach(q => {
+    const {bg,tc} = QP.chapColors[q.chapter];
+    const ec = q.errorType==='Memory'?'#FFF2CC':q.errorType==='Conceptual'?'#FCE4D6':'#E2EFDA';
+    const et = q.errorType==='Memory'?'#7B6000':q.errorType==='Conceptual'?'#7B2D00':'#1E4620';
+    body.innerHTML += `<tr>
+      <td style="font-weight:700;color:#2E5EA8">${q.qno}</td>
+      <td style="max-width:300px">${q.text||'—'}</td>
+      <td><span class="ch-badge" style="background:${bg};color:${tc}">${q.chapter}</span></td>
+      <td>${q.sub||'—'}</td>
+      <td><span style="background:${ec};color:${et};padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">${q.errorType}</span></td>
+      <td class="ctr" style="font-weight:700;font-size:14px;color:#1F3864">${q.ans}</td>
+    </tr>`;
+  });
+  if(QP.questions.length>show) {
+    body.innerHTML += `<tr><td colspan="6" style="color:#999;font-style:italic">… and ${QP.questions.length-show} more questions</td></tr>`;
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// PARSE STUDENT ANSWERS
+// ══════════════════════════════════════════════════════════════
+function parseSA(rows, fname) {
+  hideMsg('sa');
+  if(!QP) { showErr('sa','Please upload the question paper first.'); return; }
+  if(rows.length < 2) { showErr('sa','File has fewer than 2 rows.'); return; }
+
+  const header = rows[0].map(c => String(c).trim());
+  const N = QP.questions.length;
+
+  const students = [];
+  for(let r=1; r<rows.length; r++) {
+    const row = rows[r];
+    const name = String(row[0]||'').trim();
+    if(!name) continue;
+    const answers = [];
+    for(let q=0; q<N; q++) {
+      const raw = String(row[q+1]||'').trim().toUpperCase();
+      answers.push(['A','B','C','D'].includes(raw) ? raw : '');
+    }
+    students.push({name, answers});
+  }
+
+  if(students.length===0) { showErr('sa','No student rows found. Check CSV format.'); return; }
+
+  SA = students;
+  document.getElementById('sa-name').textContent = '✓ '+fname+' — '+students.length+' students loaded';
+  document.getElementById('sa-name').style.display='block';
+  document.getElementById('sa-box').classList.add('loaded');
+  showOk('sa', students.length+' students loaded. '+N+' answer columns expected.');
+  renderSAPreview();
+}
+
+function renderSAPreview() {
+  document.getElementById('sa-preview-card').style.display='';
+  const head = document.getElementById('sa-preview-head');
+  const body = document.getElementById('sa-preview-body');
+  const ANSKEY = QP.questions.map(q=>q.ans);
+  const showQ  = Math.min(QP.questions.length, 12);
+  const showS  = Math.min(SA.length, 8);
+
+  head.innerHTML = '<tr><th>Student</th>'+QP.questions.slice(0,showQ).map(q=>`<th class="ctr">${q.qno}</th>`).join('')+(QP.questions.length>showQ?'<th>…</th>':'')+'</tr>';
+  body.innerHTML = '';
+  SA.slice(0,showS).forEach(s => {
+    let row = `<td style="font-weight:700;white-space:nowrap">${s.name}</td>`;
+    s.answers.slice(0,showQ).forEach((a,i) => {
+      const ok=a===ANSKEY[i], blank=a==='';
+      const c=blank?'#999':ok?'#1B5E20':'#B71C1C', bg=blank?'':ok?'#E8F5E9':'#FFEBEE';
+      row += `<td class="ctr" style="color:${c};background:${bg};font-weight:600">${a||'–'}</td>`;
+    });
+    if(QP.questions.length>showQ) row += `<td class="ctr" style="color:#999">…</td>`;
+    body.innerHTML += `<tr>${row}</tr>`;
+  });
+  if(SA.length>showS) body.innerHTML += `<tr><td colspan="${showQ+2}" style="color:#999;font-style:italic;padding:8px">… and ${SA.length-showS} more students</td></tr>`;
+}
+
+// ══════════════════════════════════════════════════════════════
+// COMPUTE REPORT
+// ══════════════════════════════════════════════════════════════
+function computeReport() {
+  const {questions, chapGroups, chapColors} = QP;
+  const ANSKEY = questions.map(q=>q.ans);
+  const N = SA.length;
+
+  // Per-student
+  const studentReports = SA.map(st => {
+    const chapWrong = {};
+    Object.keys(chapGroups).forEach(ch => { chapWrong[ch]=0; });
+    let totalWrong=0;
+    questions.forEach((q,qi) => {
+      const a = st.answers[qi];
+      if(a!=='' && a!==ANSKEY[qi]) { totalWrong++; chapWrong[q.chapter]++; }
+    });
+    const score = questions.length - totalWrong;
+    const ranked = Object.entries(chapWrong).sort((a,b)=>b[1]-a[1]);
+    const w1=ranked[0][0], w2=ranked.length>1?ranked[1][0]:ranked[0][0];
+    const pct = Math.round((score/questions.length)*100);
+    const priority = totalWrong >= questions.length*0.6 ? 'high'
+                   : totalWrong >= questions.length*0.4 ? 'medium' : 'low';
+    return {name:st.name, score, totalWrong, pct, chapWrong, w1, w2, priority, answers:st.answers};
+  });
+
+  // Chapter-level
+  const chapterStats = {};
+  Object.entries(chapGroups).forEach(([ch, indices]) => {
+    let totalWrong=0;
+    const max = indices.length * N;
+    SA.forEach(st => { indices.forEach(qi => { if(st.answers[qi]!=='' && st.answers[qi]!==ANSKEY[qi]) totalWrong++; }); });
+    const pct = max>0 ? totalWrong/max : 0;
+    chapterStats[ch] = {
+      totalWrong, max, pct,
+      level: pct>=0.6?'critical':pct>=0.4?'needs':'strong',
+      qs: indices.length===1 ? questions[indices[0]].qno
+                              : questions[indices[0]].qno+' – '+questions[indices[indices.length-1]].qno,
+      count: indices.length,
+    };
+  });
+
+  // Error type breakdown
+  let mem=0,con=0,app=0;
+  SA.forEach(st => {
+    questions.forEach((q,qi) => {
+      const a=st.answers[qi];
+      if(a!==''&&a!==ANSKEY[qi]) {
+        if(q.errorType==='Memory') mem++;
+        else if(q.errorType==='Conceptual') con++;
+        else app++;
+      }
+    });
+  });
+
+  const worstCh  = Object.entries(chapterStats).sort((a,b)=>b[1].pct-a[1].pct)[0][0];
+  const bestCh   = Object.entries(chapterStats).sort((a,b)=>a[1].pct-b[1].pct)[0][0];
+  const highRisk = studentReports.filter(s=>s.priority==='high').length;
+  const medRisk  = studentReports.filter(s=>s.priority==='medium').length;
+  const lowRisk  = studentReports.filter(s=>s.priority==='low').length;
+  const avgScore = Math.round(studentReports.reduce((a,s)=>a+s.score,0)/N);
+
+  return {chapterStats, studentReports, worstCh, bestCh,
+          highRisk, medRisk, lowRisk, avgScore, mem, con, app, N,
+          totalQ: questions.length, chapColors};
+}
+
+// ══════════════════════════════════════════════════════════════
+// RENDER REPORT
+// ══════════════════════════════════════════════════════════════
+function generateReport() {
+  if(!QP||!SA) { alert('Please upload both question paper and student answers first.'); return; }
+  RPT = computeReport();
+  renderSummaryCards();
+  renderSecA();
+  renderSecB('name');
+  renderSecC();
+  gotoStep(3);
+}
+
+function renderSummaryCards() {
+  const r=RPT;
+  document.getElementById('summary-cards').innerHTML = [
+    {l:'Students Analysed',  v:r.N,           s:'total'},
+    {l:'Questions in Test',  v:r.totalQ,       s:'from question paper'},
+    {l:'High Risk Students', v:r.highRisk,     s:'need urgent help', danger:true},
+    {l:'Weakest Chapter',    v:r.worstCh,      s:'highest error rate', small:true},
+  ].map(c=>`<div class="metric">
+    <div class="mlabel">${c.l}</div>
+    <div class="mval" style="${c.danger?'color:#B71C1C':''}${c.small?';font-size:15px':''}">${c.v}</div>
+    <div class="msub">${c.s}</div>
+  </div>`).join('');
+}
+
+function renderSecA() {
+  const tbody = document.getElementById('rpt-a-body');
+  tbody.innerHTML='';
+  Object.entries(RPT.chapterStats).forEach(([ch,s]) => {
+    const pct=Math.round(s.pct*100);
+    const {bg,tc}=RPT.chapColors[ch];
+    let bCls, bColor, barC;
+    if(s.level==='critical'){bCls='b-red';barC='#E53935';}
+    else if(s.level==='needs'){bCls='b-yellow';barC='#FB8C00';}
+    else{bCls='b-green';barC='#43A047';}
+    const lbl=s.level==='critical'?'🔴 Critical Gap':s.level==='needs'?'🟡 Needs Attention':'🟢 Strong';
+    tbody.innerHTML+=`<tr>
+      <td><span class="ch-badge" style="background:${bg};color:${tc}">${ch}</span></td>
+      <td style="color:#555">${s.qs} &nbsp;(${s.count}Q)</td>
+      <td class="ctr" style="font-weight:700">${s.totalWrong}</td>
+      <td class="ctr" style="color:#888">${s.max}</td>
+      <td class="ctr" style="font-weight:700;color:${barC}">${pct}%</td>
+      <td><div class="pbar"><div class="pfill" style="width:${pct}%;background:${barC}"></div></div></td>
+      <td class="ctr"><span class="badge ${bCls}">${lbl}</span></td>
+    </tr>`;
+  });
+}
+
+function renderSecB(key) {
+  const data=[...RPT.studentReports];
+  if(key==='name')  data.sort((a,b)=>a.name.localeCompare(b.name)*SORT_DIR);
+  else if(key==='score') data.sort((a,b)=>(a.score-b.score)*SORT_DIR);
+  else if(key==='wrong') data.sort((a,b)=>(b.totalWrong-a.totalWrong)*SORT_DIR);
+  else { const o={high:0,medium:1,low:2}; data.sort((a,b)=>(o[a.priority]-o[b.priority])*SORT_DIR); }
+
+  const ANSKEY=QP.questions.map(q=>q.ans);
+  const prB={
+    high:'<span class="badge b-red">🔴 High</span>',
+    medium:'<span class="badge b-yellow">🟡 Medium</span>',
+    low:'<span class="badge b-green">🟢 Low</span>',
+  };
+
+  const cols=Math.min(QP.questions.length,5);
+  document.getElementById('rpt-b-header').innerHTML=
+    `<div style="display:grid;grid-template-columns:180px 80px 150px 150px 110px 22px;gap:10px">
+      <span>Student</span><span>Score</span><span>Weakest</span><span>2nd Weakest</span><span>Priority</span><span></span>
+    </div>`;
+
+  document.getElementById('rpt-b-body').innerHTML = data.map((s,i)=>{
+    const {bg:w1bg,tc:w1tc}=RPT.chapColors[s.w1];
+    const {bg:w2bg,tc:w2tc}=RPT.chapColors[s.w2];
+
+    // action plan (generic, chapter-aware)
+    const plan = `Day 1: Review all key concepts in <strong>${s.w1}</strong> — make a one-page summary note with diagrams/flowcharts.<br>
+Day 2: Redo every wrong question from <strong>${s.w1}</strong> and <strong>${s.w2}</strong> — write out the correct reasoning for each.<br>
+Day 3: Solve 20 fresh MCQs focused on ${s.w1} under timed conditions. Target 80%+ accuracy.`;
+
+    const ansHtml = s.answers.map((a,qi)=>{
+      const ok=a===ANSKEY[qi], blank=a==='';
+      return `<div class="ans-cell ${blank?'ans-blank':ok?'ans-ok':'ans-err'}">
+        <span class="qlbl">${QP.questions[qi].qno}</span>${a||'–'}
+      </div>`;
+    }).join('');
+
+    const chapBreakdown = Object.entries(s.chapWrong)
+      .map(([ch,w])=>`<span style="font-size:11px;background:#f0f4fb;border:1px solid #dde4ef;border-radius:4px;padding:2px 8px;color:#555">${ch}: ${w}❌</span>`)
+      .join('');
+
+    return `<div class="srow">
+      <div class="shdr" style="grid-template-columns:180px 80px 150px 150px 110px 22px" onclick="toggleS(${i})">
+        <span style="font-weight:700">${s.name}</span>
+        <span style="font-weight:700;color:#1F3864">${s.score}/${QP.questions.length}</span>
+        <span class="ch-badge" style="background:${w1bg};color:${w1tc}">${s.w1}</span>
+        <span class="ch-badge" style="background:${w2bg};color:${w2tc}">${s.w2}</span>
+        ${prB[s.priority]}
+        <span id="sarr-${i}" style="color:#aaa;font-size:11px">▶</span>
+      </div>
+      <div class="sdetail" id="sdet-${i}">
+        <p style="font-size:12px;font-weight:700;color:#1F3864;margin-bottom:8px">3-Day Action Plan</p>
+        <p style="font-size:12px;color:#444;line-height:1.8;margin-bottom:12px">${plan}</p>
+        <p style="font-size:11px;font-weight:700;color:#666;margin-bottom:6px">Answer grid &nbsp;(🟢 correct · 🔴 wrong)</p>
+        <div class="ans-grid">${ansHtml}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">${chapBreakdown}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleS(i) {
+  const d=document.getElementById('sdet-'+i), a=document.getElementById('sarr-'+i);
+  d.classList.toggle('open'); a.textContent=d.classList.contains('open')?'▼':'▶';
+}
+
+function sortStudents(key) {
+  if(key===SORT_KEY) SORT_DIR*=-1; else { SORT_KEY=key; SORT_DIR=key==='wrong'?-1:1; }
+  renderSecB(key);
+}
+
+function renderSecC() {
+  const r=RPT;
+  const total=r.N*r.totalQ;
+  const topErr=r.mem>=r.con&&r.mem>=r.app?'Memory':r.con>=r.app?'Conceptual':'Application';
+  const insights=[
+    {c:'#B71C1C',bg:'#FFEBEE', t:`Biggest gap: <strong>${r.worstCh}</strong> has the highest error rate across the batch. Schedule one dedicated 45-min revision class on this chapter before the next test cycle.`},
+    {c:'#1B5E20',bg:'#E8F5E9', t:`Strongest area: <strong>${r.bestCh}</strong> shows the best accuracy. Students have retained this chapter well — you can reduce revision time here.`},
+    {c:'#E65100',bg:'#FFF8E1', t:`Risk breakdown: <strong>${r.highRisk} High Risk</strong> (60%+ wrong) · <strong>${r.medRisk} Medium Risk</strong> (40–60%) · <strong>${r.lowRisk} Low Risk</strong> (<40% wrong). High-risk students need immediate targeted sessions.`},
+    {c:'#283593',bg:'#E8EAF6', t:`Dominant error type: <strong>${topErr}</strong>. Memory: ${r.mem} errors · Conceptual: ${r.con} errors · Application: ${r.app} errors. ${topErr==='Conceptual'?'Focus on understanding mechanisms, not just rote facts.':topErr==='Application'?'Students understand concepts but struggle to apply them — practice more MCQs.':'Spaced repetition and flashcard drills will help retention.'}`},
+    {c:'#1F3864',bg:'#E3F2FD', t:`Recommended batch action: Group all high-risk students for a focused session on <strong>${r.worstCh}</strong>. Re-test those specific questions within 7 days to track improvement.`},
+  ];
+  document.getElementById('rpt-c-body').innerHTML=insights.map(ins=>
+    `<div class="insight" style="background:${ins.bg}">
+      <div class="idot" style="background:${ins.c}"></div>
+      <p style="font-size:13px;line-height:1.7">${ins.t}</p>
+    </div>`).join('');
+}
+
+// ══════════════════════════════════════════════════════════════
+// REPORT TABS
+// ══════════════════════════════════════════════════════════════
+function showRTab(t) {
+  ['a','b','c'].forEach(x => {
+    document.getElementById('rpt-'+x).style.display=x===t?'':'none';
+    document.getElementById('rtab-'+x).className='rtab'+(x===t?' active':'');
+  });
+}
+
+// ══════════════════════════════════════════════════════════════
+// EXCEL EXPORT
+// ══════════════════════════════════════════════════════════════
+function exportExcel() {
+  if(!RPT) return;
+  const wb=XLSX.utils.book_new();
+  const ANSKEY=QP.questions.map(q=>q.ans);
+
+  // Sheet 1: Student Data
+  const sd=[['Student Name',...QP.questions.map(q=>q.qno),'Total Wrong','Score','Score %','Priority']];
+  RPT.studentReports.forEach(s => {
+    sd.push([s.name,...s.answers,s.totalWrong,s.score,s.pct+'%',s.priority.toUpperCase()]);
+  });
+  const ws1=XLSX.utils.aoa_to_sheet(sd);
+  ws1['!cols']=[{wch:22},...Array(QP.questions.length).fill({wch:5}),{wch:12},{wch:8},{wch:10},{wch:10}];
+  XLSX.utils.book_append_sheet(wb,ws1,'Student Data');
+
+  // Sheet 2: Chapter Analysis
+  const ca=[['Chapter','Questions','Total Wrong','Max Possible','Error Rate %','Weakness Level']];
+  Object.entries(RPT.chapterStats).forEach(([ch,s]) => {
+    ca.push([ch,s.qs,s.totalWrong,s.max,Math.round(s.pct*100)+'%',
+      s.level==='critical'?'CRITICAL GAP':s.level==='needs'?'NEEDS ATTENTION':'STRONG']);
+  });
+  const ws2=XLSX.utils.aoa_to_sheet(ca);
+  ws2['!cols']=[{wch:20},{wch:16},{wch:14},{wch:14},{wch:14},{wch:18}];
+  XLSX.utils.book_append_sheet(wb,ws2,'Chapter Analysis');
+
+  // Sheet 3: Individual Diagnosis
+  const id=[['Student','Score','Total Wrong','Score %','Weakest Chapter','2nd Weakest','Priority',
+             ...Object.keys(QP.chapGroups).map(c=>c+' Wrong')]];
+  RPT.studentReports.forEach(s => {
+    id.push([s.name,s.score,s.totalWrong,s.pct+'%',s.w1,s.w2,s.priority.toUpperCase(),
+             ...Object.values(s.chapWrong)]);
+  });
+  const ws3=XLSX.utils.aoa_to_sheet(id);
+  ws3['!cols']=[{wch:22},{wch:8},{wch:12},{wch:10},{wch:20},{wch:20},{wch:10},...Array(Object.keys(QP.chapGroups).length).fill({wch:14})];
+  XLSX.utils.book_append_sheet(wb,ws3,'Individual Diagnosis');
+
+  // Sheet 4: Question Bank
+  const qb=[['Q No','Question','Chapter','Sub-Concept','Error Type','Answer Key']];
+  QP.questions.forEach(q => { qb.push([q.qno,q.text,q.chapter,q.sub,q.errorType,q.ans]); });
+  const ws4=XLSX.utils.aoa_to_sheet(qb);
+  ws4['!cols']=[{wch:6},{wch:65},{wch:18},{wch:28},{wch:14},{wch:10}];
+  XLSX.utils.book_append_sheet(wb,ws4,'Question Bank');
+
+  XLSX.writeFile(wb,'BioRivet_Diagnostic_Report.xlsx');
+}
+
+// ══════════════════════════════════════════════════════════════
+// TEMPLATES & SAMPLE
+// ══════════════════════════════════════════════════════════════
+function downloadQPTemplate() {
+  const wb=XLSX.utils.book_new();
+  const data=[
+    ['Q No','Question','Chapter','Sub-Concept','Error Type','Answer'],
+    ['Q1','Which enzyme converts caseinogen to casein in stomach?','Digestion','Gastric Enzymes','Memory','A'],
+    ['Q2','Chylomicrons are rich in which type of lipid?','Digestion','Lipid Absorption','Memory','B'],
+    ['Q3','Which node is the natural pacemaker of the heart?','Circulation','Cardiac Conduction','Memory','B'],
+    ['Q4','P-wave in ECG represents which cardiac event?','Circulation','ECG','Memory','C'],
+    ['Q5','Maximum water reabsorption occurs in which part of nephron?','Excretion','Nephron Function','Conceptual','A'],
+  ];
+  const ws=XLSX.utils.aoa_to_sheet(data);
+  ws['!cols']=[{wch:6},{wch:60},{wch:18},{wch:26},{wch:14},{wch:8}];
+  XLSX.utils.book_append_sheet(wb,ws,'Question Bank');
+  XLSX.writeFile(wb,'question_paper_template.xlsx');
+}
+
+function downloadSATemplate() {
+  if(!QP) { alert('Please upload the question paper first so the template matches your questions.'); return; }
+  const header=['Student Name',...QP.questions.map(q=>q.qno)];
+  const row1=['Example Student',...QP.questions.map(q=>q.ans)];
+  const row2=['Student 2',...Array(QP.questions.length).fill('')];
+  const wb=XLSX.utils.book_new();
+  const ws=XLSX.utils.aoa_to_sheet([header,row1,row2]);
+  ws['!cols']=[{wch:22},...Array(QP.questions.length).fill({wch:5})];
+  XLSX.utils.book_append_sheet(wb,ws,'Student Answers');
+  XLSX.writeFile(wb,'student_answers_template.xlsx');
+}
+
+function loadSampleStudents() {
+  if(!QP) { alert('Please upload the question paper first.'); return; }
+  const names=['Aarav Singh','Priya Sharma','Ravi Kumar','Sneha Patel','Kiran Reddy',
+    'Anjali Gupta','Arjun Nair','Divya Menon','Rahul Verma','Pooja Iyer',
+    'Siddharth Joshi','Kavya Rao','Mohit Tiwari','Neha Desai','Arun Pillai',
+    'Shreya Mishra','Vikram Chauhan','Ananya Das','Rohit Yadav','Meera Nambiar'];
+  const opts=['A','B','C','D'];
+  let s=42;
+  const rand=()=>{ s=(s*9301+49297)%233280; return s/233280; };
+  const ANSKEY=QP.questions.map(q=>q.ans);
+  SA=names.map(name=>({
+    name,
+    answers:QP.questions.map(q=>{
+      if(rand()<0.42){const w=opts.filter(o=>o!==q.ans);return w[Math.floor(rand()*3)];}
+      return q.ans;
+    })
+  }));
+  showOk('sa', SA.length+' sample students loaded (demo data).');
+  renderSAPreview();
+}
+
+// ══════════════════════════════════════════════════════════════
+// HELPERS
+// ══════════════════════════════════════════════════════════════
+function showErr(type, msg) {
+  const el=document.getElementById(type+'-err');
+  el.textContent=msg; el.style.display='block';
+  document.getElementById(type+'-ok').style.display='none';
+}
+function showOk(type, msg) {
+  const el=document.getElementById(type+'-ok');
+  el.textContent='✓ '+msg; el.style.display='block';
+  document.getElementById(type+'-err').style.display='none';
+}
+function hideMsg(type) {
+  document.getElementById(type+'-err').style.display='none';
+  document.getElementById(type+'-ok').style.display='none';
+}
+</script>
+</body>
+</html>
