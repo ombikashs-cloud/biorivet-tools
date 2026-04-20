@@ -56,7 +56,8 @@ Questions to analyze:\n`;
 
         if (data.error) {
             console.error("Gemini API Error:", data.error);
-            return res.status(500).json({ error: 'AI provider error.' });
+            // Return the specific error message from Google so the user knows what went wrong
+            return res.status(500).json({ error: data.error.message || 'AI provider error.' });
         }
 
         const rawText = data.candidates[0].content.parts[0].text;
