@@ -101,10 +101,12 @@ input[type=file]{display:none}
 <div class="wrap">
 
 <div class="header">
-  <div class="logo">BR</div>
+  <img src="logo.png" alt="BioRivet Logo" style="height:42px; border-radius:8px; background:white; padding:2px; object-fit:contain;" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+  <div class="logo" style="display:none;">BR</div>
   <div>
     <h1>BioRivet – NEET Diagnostic Tool &nbsp;<span style="opacity:.5;font-weight:400;font-size:13px">Generic Edition</span></h1>
     <p>Upload any question paper + answer key → Upload student OMR data → Get full diagnostic report instantly</p>
+    <p style="font-size:11px; font-weight:700; color:#E3F2FD; margin-top:4px; letter-spacing:0.5px; text-transform:uppercase;">KNOW MORE. FEAR LESS.</p>
   </div>
 </div>
 
@@ -468,6 +470,7 @@ async function autoTagQuestions() {
           const q = QP.questions.find(q => q.qno === res.qno);
           if (q) {
               if (q.chapter === 'Unknown') q.chapter = res.chapter || 'Unknown';
+              if (!q.sub || q.sub === '—') q.sub = res.subConcept || res.sub || '—';
               if (q.errorType === 'Unknown') q.errorType = res.errorType || 'Memory';
               if (q.ans === '?') q.ans = res.ans || '?';
               q.needsTagging = false;
@@ -586,16 +589,19 @@ function computeReport() {
     const chapWrong = {};
     Object.keys(chapGroups).forEach(ch => { chapWrong[ch]=0; });
     let totalWrong=0;
+    let totalCorrect=0;
     questions.forEach((q,qi) => {
       const a = st.answers[qi];
-      if(a!=='' && a!==ANSKEY[qi]) { totalWrong++; chapWrong[q.chapter]++; }
+      if(a==='') { /* unattempted, do nothing */ }
+      else if(a!==ANSKEY[qi]) { totalWrong++; chapWrong[q.chapter]++; }
+      else { totalCorrect++; }
     });
-    const score = questions.length - totalWrong;
+    const score = totalCorrect;
     const ranked = Object.entries(chapWrong).sort((a,b)=>b[1]-a[1]);
     const w1=ranked[0][0], w2=ranked.length>1?ranked[1][0]:ranked[0][0];
     const pct = Math.round((score/questions.length)*100);
-    const priority = totalWrong >= questions.length*0.6 ? 'high'
-                   : totalWrong >= questions.length*0.4 ? 'medium' : 'low';
+    const priority = pct < 40 ? 'high'
+                   : pct < 60 ? 'medium' : 'low';
     return {name:st.name, score, totalWrong, pct, chapWrong, w1, w2, priority, answers:st.answers};
   });
 
@@ -742,7 +748,7 @@ Day 3: Solve 20 fresh MCQs focused on ${s.w1} under timed conditions. Target 80%
       <div class="sdetail" id="sdet-${i}">
         <p style="font-size:12px;font-weight:700;color:#1F3864;margin-bottom:8px">3-Day Action Plan</p>
         <p style="font-size:12px;color:#444;line-height:1.8;margin-bottom:12px">${plan}</p>
-        <p style="font-size:11px;font-weight:700;color:#666;margin-bottom:6px">Answer grid &nbsp;(🟢 correct · 🔴 wrong)</p>
+        <p style="font-size:11px;font-weight:700;color:#666;margin-bottom:6px">Answer grid &nbsp;(🟢 correct · 🔴 wrong · ⚪ unattempted)</p>
         <div class="ans-grid">${ansHtml}</div>
         <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">${chapBreakdown}</div>
       </div>

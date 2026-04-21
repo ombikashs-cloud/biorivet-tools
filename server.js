@@ -26,11 +26,12 @@ app.post('/api/auto-tag', async (req, res) => {
         // Format the questions into a text prompt
         let promptText = `Analyze the following NEET exam questions. For each question, infer the missing fields:
 1. "chapter": The most relevant biology/physics/chemistry chapter name (e.g., Digestion, Kinematics, Cell Biology).
-2. "errorType": Classify the question as either "Memory" (rote fact), "Conceptual" (understanding principles), or "Application" (calculating/applying formulas).
-3. "ans": The correct answer option: A, B, C, or D. If unsure, take your best guess.
+2. "subConcept": The specific sub-topic or concept within that chapter.
+3. "errorType": Classify the question as either "Memory" (rote fact), "Conceptual" (understanding principles), or "Application" (calculating/applying formulas).
+4. "ans": The correct answer option: A, B, C, or D. If unsure, take your best guess.
 
 Return the result STRICTLY as a JSON array of objects. Do not include markdown formatting or any other text.
-Format: [{"qno": "Q1", "chapter": "Cell Biology", "errorType": "Memory", "ans": "B"}]
+Format: [{"qno": "Q1", "chapter": "Cell Biology", "subConcept": "Cell Membrane", "errorType": "Memory", "ans": "B"}]
 
 Questions to analyze:\n`;
 
