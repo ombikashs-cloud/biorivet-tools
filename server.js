@@ -87,15 +87,75 @@ app.post('/api/analyze-document', async (req, res) => {
             return res.status(500).json({ error: 'GEMINI_API_KEY is not configured on the server.' });
         }
 
-        let promptText = `Analyze the provided NEET exam paper. Extract all questions and infer their properties.
-For each question, determine:
+        let promptText = `You are a NEET UG difficulty analysis expert. Your job is to classify each question in this exam paper into Easy, Medium, or Hard using the strict NEET-calibrated rubric below.
+
+## NEET DIFFICULTY RUBRIC
+### EASY
+- Direct recall of a single definition, fact, or diagram label
+- No calculation required, OR a one-step formula substitution
+- Covered in NCERT text verbatim or as a highlighted box
+- A student with 60% preparation can answer correctly
+
+### MEDIUM
+- Requires understanding of a concept, not just recall
+- May involve 2-step calculation OR applying a formula with given values requiring unit conversion
+- Assertion-Reason or Statement I/II where both statements require independent verification
+- Match-the-list questions with 4 items requiring accurate recall of ALL 4 pairs
+- A student with 75% preparation can answer correctly
+
+### HARD
+- Multi-step calculation (3 or more steps), OR derivation required, OR the formula itself must be recalled AND applied
+- Requires integrating knowledge from 2 or more different concepts/chapters
+- Tricky or misleading options where a common misconception leads to wrong answer
+- Numerical problems requiring dimensional analysis, unit conversion AND formula application together
+- Questions testing exceptions, atypical cases, or facts NOT directly in NCERT main text
+- Organic reaction mechanism questions requiring arrow-pushing logic or predicting major product through multiple steps
+- A student with 90%+ preparation is needed to reliably answer correctly
+
+## SUBJECT-SPECIFIC GUIDANCE
+### PHYSICS
+- If substituting values into a standard formula (F=ma, V=IR): MEDIUM
+- If deriving formula or combining 2+ formulas: HARD
+- Purely conceptual multiple-select/statement on EM waves, optics, semiconductors: MEDIUM
+- Logic gate / truth table: EASY
+- Graph/diagram requiring extracting values AND calculating: HARD
+
+### CHEMISTRY
+- IUPAC naming, reaction type ID, structure ID: MEDIUM
+- Stoichiometry with mole concept in one step: MEDIUM
+- Electrochemistry calculation, Arrhenius, Kc/Kp: HARD
+- Matching organic reactions to reagents (4-pair): MEDIUM
+- Predicting major product of multi-step organic reaction: HARD
+- Qualitative analysis group ID order: HARD
+- Coordination chemistry: isomerism MEDIUM, magnetic behaviour HARD
+
+### BIOLOGY (BOTANY + ZOOLOGY)
+- Single-word or single-fact recall from NCERT: EASY
+- 5 statements (A,B,C,D,E choose correct set): MEDIUM
+- Match-the-list with scientists/researchers: MEDIUM
+- Assertion-Reason in Biology: MEDIUM
+- Specific chromosome numbers, trisomy, genetic disorder mechanisms: HARD
+- Multi-concept questions linking 2 chapters: HARD
+- Process sequencing (enzyme cycle, spermatogenesis): MEDIUM
+
+## IMPORTANT RULES
+1. Do NOT default to Easy for Biology recall unless single-word NCERT verbatim.
+2. Do NOT classify any multi-step Physics calculation as Easy.
+3. Assertion-Reason and Statement I/II are NEVER Easy — minimum Medium.
+4. Match-the-list with 4 pairs is NEVER Easy — minimum Medium.
+5. 5 options to evaluate (A,B,C,D,E) is NEVER Easy — minimum Medium.
+6. Each question must be tagged to ONE primary chapter only (no slashes).
+7. If testing an exception or "most appropriate" nuance, classify one level harder.
+
+Extract all questions and infer their properties. For each question, output:
 1. "qno": The question number.
-2. "chapter": The most relevant biology/physics/chemistry chapter name.
-3. "difficulty": Actively analyze the question's meaning, calculation depth, and conceptual complexity. Classify it strictly as "Easy", "Medium", or "Hard". Ignore any existing difficulty labels in the document; use your own AI judgement.
-4. "marks": The marks for the question (default to 4 if not specified).
+2. "chapter": The ONE primary chapter name.
+3. "difficulty": "Easy", "Medium", or "Hard".
+4. "reason": A one-line reason (max 12 words) explaining why.
+5. "marks": Default to 4.
 
 Return the result STRICTLY as a JSON array of objects. Do not include markdown formatting or any other text.
-Format: [{"qno": "1", "chapter": "Cell Biology", "difficulty": "Medium", "marks": 4}]`;
+Format: [{"qno": "1", "chapter": "Cell Biology", "difficulty": "Medium", "reason": "Requires verifying 5 statements independently", "marks": 4}]`;
 
         const requestBody = {
             contents: [{ parts: [{ text: promptText }] }],
