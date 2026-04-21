@@ -334,47 +334,128 @@
         let globalData = [];
         let chapterAnalysis = [];
 
-        // Drag and Drop
-        const dropZone = document.getElementById('drop-zone');
-        const fileInput = document.getElementById('file-input');
+        function setupDropZone() {
+            const dropZone = document.getElementById('drop-zone');
+            const fileInput = document.getElementById('file-input');
 
-        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.style.background = '#e1bee7'; });
-        dropZone.addEventListener('dragleave', () => dropZone.style.background = 'var(--accent-light)');
-        dropZone.addEventListener('drop', (e) => {
-            e.preventDefault();
-            dropZone.style.background = 'var(--accent-light)';
-            if (e.dataTransfer.files.length) processFile(e.dataTransfer.files[0]);
-        });
+            dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.style.background = '#e1bee7'; });
+            dropZone.addEventListener('dragleave', () => dropZone.style.background = 'var(--accent-light)');
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.style.background = 'var(--accent-light)';
+                if (e.dataTransfer.files.length) processFile(e.dataTransfer.files[0]);
+            });
 
-        fileInput.addEventListener('change', (e) => {
-            if (e.target.files.length) processFile(e.target.files[0]);
-        });
-
-        function downloadTemplate() {
-            const ws = XLSX.utils.aoa_to_sheet([
-                ["Q No", "Question", "Chapter", "Difficulty", "Marks"],
-                [1, "What is the powerhouse of the cell?", "Cell Biology", "Easy", 4],
-                [2, "Calculate the velocity...", "Kinematics", "Medium", 4],
-                [3, "Complex mechanism of...", "Genetics", "Hard", 4]
-            ]);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "Template");
-            XLSX.writeFile(wb, "Difficulty_Analyser_Template.xlsx");
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files.length) processFile(e.target.files[0]);
+            });
         }
 
-        function processFile(file) {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                try {
-                    const data = new Uint8Array(e.target.result);
-                    const workbook = XLSX.read(data, {type: 'array'});
-                    const json = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
-                    analyzeData(json);
-                } catch (err) {
-                    alert("Error processing file. Please ensure it is a valid Excel/CSV file.");
+        // Initialize drop zone on load
+        setupDropZone();
+
+        function restoreUploadUI() {
+            document.getElementById('upload-section').innerHTML = `
+            <h2>Audit Your Question Paper</h2>
+            <div class="upload-zone" onclick="document.getElementById('file-input').click()" id="drop-zone">
+                <div class="upload-icon">✨🎯</div>
+                <div style="font-size: 1.2rem; font-weight: 600; margin-bottom: 0.5rem; color: var(--primary);">Upload Paper for AI Analysis</div>
+                <div style="color: var(--text-muted); font-size: 0.95rem;">Drag & drop PDF, Excel, CSV, or Images here.</div>
+                <input type="file" id="file-input" class="file-input" accept=".xlsx, .xls, .csv, .pdf, .jpg, .jpeg, .png, .doc, .docx">
+            </div>
+            <div class="info-box">
+                <strong>Supported Formats:</strong> PDF, Images (JPG/PNG), Excel, CSV.<br><br>
+                <span style="color:var(--accent); font-weight:600;">✨ AI Powered OCR & Analysis:</span> The tool will actively read your questions (even from scanned PDFs), understand their conceptual depth, and automatically determine the exact Chapter and Difficulty Level (Easy/Medium/Hard).
+            </div>`;
+            setupDropZone();
+        }
+
+        // Update the initial upload section UI to match the new AI powered one
+        restoreUploadUI();
+
+        async function processFile(file) {
+            const ext = file.name.split('.').pop().toLowerCase();
+            
+            // Show loading UI
+            document.getElementById('upload-section').innerHTML = `
+            <div style="text-align:center; padding: 4rem 2rem; background: var(--card-bg); border-radius: 12px; border: 2px solid var(--accent);">
+                <div style="font-size: 3rem; margin-bottom: 1rem; animation: pulse 1.5s infinite;">🧠</div>
+                <h2 style="color: var(--accent); margin-bottom: 0.5rem;">AI is auditing your paper...</h2>
+                <p style="color: var(--text-muted);">Extracting questions, running OCR (if needed), analyzing conceptual depth, and determining difficulty levels.</p>
+                <p style="font-size:0.85rem; margin-top:1rem; font-style:italic;">This usually takes 10-30 seconds depending on the paper length.</p>
+            </div>
+            `;
+
+            if (['xlsx', 'xls', 'csv'].includes(ext)) {
+                // Parse locally, then send text to AI
+                const reader = new FileReader();
+                reader.onload = async (e) => {
+                    try {
+                        const data = new Uint8Array(e.target.result);
+                        const workbook = XLSX.read(data, {type: 'array'});
+                        const json = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+                        
+                        let textContent = json.map((r, idx) => {
+                            const keys = Object.keys(r);
+                            const qKey = keys.find(k => String(k).toLowerCase().includes('question') || String(k).toLowerCase().includes('text'));
+                            const qNoKey = keys.find(k => String(k).toLowerCase().includes('q no') || String(k).toLowerCase().includes('no'));
+                            return `[QNo: ${r[qNoKey] || (idx+1)}] ${r[qKey] || ''}`;
+                        }).join('\n');
+
+                        if (!textContent.trim()) throw new Error("Could not extract question text.");
+                        await sendToAI({ textContent });
+                    } catch (err) {
+                        alert("Error parsing Excel file. Ensure there is a 'Question' column.");
+                        resetApp();
+                    }
+                };
+                reader.readAsArrayBuffer(file);
+            } else {
+                // PDF or Image -> Convert to Base64 and send to Gemini API
+                const reader = new FileReader();
+                reader.onload = async (e) => {
+                    const base64Data = e.target.result.split(',')[1];
+                    const mimeType = file.type || 'application/pdf';
+                    await sendToAI({ fileData: base64Data, mimeType });
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        async function sendToAI(payload) {
+            try {
+                const response = await fetch('/api/analyze-document', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await response.json();
+                
+                if (data.error) {
+                    alert('AI Error: ' + data.error);
+                    resetApp();
+                    return;
                 }
-            };
-            reader.readAsArrayBuffer(file);
+
+                if (data.results && data.results.length > 0) {
+                    // Reformat to match the expected format for analyzeData
+                    const mappedData = data.results.map(r => ({
+                        'Q No': r.qno,
+                        'Chapter': r.chapter,
+                        'Difficulty': r.difficulty,
+                        'Marks': r.marks || 4
+                    }));
+                    
+                    restoreUploadUI();
+                    analyzeData(mappedData);
+                } else {
+                    alert('No questions were found or extracted by the AI.');
+                    resetApp();
+                }
+            } catch (err) {
+                alert('Network error during AI analysis.');
+                resetApp();
+            }
         }
 
         function analyzeData(data) {
@@ -531,7 +612,7 @@
         function resetApp() {
             document.getElementById('dashboard').style.display = 'none';
             document.getElementById('upload-section').style.display = 'block';
-            document.getElementById('file-input').value = '';
+            restoreUploadUI();
             chapterAnalysis = [];
         }
 
