@@ -375,45 +375,70 @@
 
         let progressInterval;
 
-        function startSimulatedProgress() {
-            let progress = 0;
+        function updateProgressUI(percent, text) {
             const bar = document.getElementById('ai-progress-bar');
             const txt = document.getElementById('ai-progress-text');
-            
+            const status = document.getElementById('ai-status-text');
+            if (bar) bar.style.width = percent + '%';
+            if (txt) txt.innerText = Math.round(percent) + '%';
+            if (status && text) status.innerText = text;
+        }
+
+        function startSimulatedProgress() {
+            let progress = 0;
             if (progressInterval) clearInterval(progressInterval);
             
             progressInterval = setInterval(() => {
-                const remaining = 95 - progress;
-                progress += Math.max(0.3, remaining * 0.05); // Approaches 95% asymptotically
-                
-                if (bar) bar.style.width = progress + '%';
-                if (txt) txt.innerText = Math.round(progress) + '%';
+                if (progress < 95) {
+                    const remaining = 95 - progress;
+                    progress += Math.max(0.2, remaining * 0.05);
+                    if (progress > 95) progress = 95;
+                    updateProgressUI(progress);
+                }
             }, 600);
+        }
+
+        async function processAIBatch(payload) {
+            const response = await fetch('/api/analyze-document', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await response.json();
+            
+            if (data.error) throw new Error(data.error);
+            if (!data.results || data.results.length === 0) throw new Error("No questions extracted");
+            
+            return data.results.map(r => ({
+                'Q No': r.qno,
+                'Chapter': r.chapter,
+                'Difficulty': r.difficulty,
+                'Marks': r.marks || 4,
+                'Reason': r.reason
+            }));
         }
 
         async function processFile(file) {
             const ext = file.name.split('.').pop().toLowerCase();
             
-            // Show loading UI with progress bar
+            // Show loading UI
             document.getElementById('upload-section').innerHTML = `
             <div style="text-align:center; padding: 4rem 2rem; background: var(--card-bg); border-radius: 12px; border: 2px solid var(--accent);">
                 <div style="font-size: 3rem; margin-bottom: 1rem; animation: pulse 1.5s infinite;">🧠</div>
                 <h2 style="color: var(--accent); margin-bottom: 0.5rem;">AI is auditing your paper...</h2>
-                <p style="color: var(--text-muted);">Extracting questions, running OCR (if needed), analyzing conceptual depth, and determining difficulty levels.</p>
+                <p id="ai-status-text" style="color: var(--text-muted); font-weight: 500;">Extracting questions and preparing AI analysis...</p>
                 
                 <div style="width: 80%; max-width: 400px; margin: 1.5rem auto 0.5rem auto; background: #e2e8f0; border-radius: 20px; overflow: hidden; height: 10px;">
                     <div id="ai-progress-bar" style="width: 0%; height: 100%; background: var(--accent); transition: width 0.4s ease;"></div>
                 </div>
                 <p id="ai-progress-text" style="font-size:0.9rem; font-weight: 600; color: var(--accent); margin-top: 0;">0%</p>
                 
-                <p style="font-size:0.85rem; margin-top:1rem; font-style:italic; color: var(--text-muted);">This usually takes 10-30 seconds depending on the paper length.</p>
+                <p style="font-size:0.85rem; margin-top:1rem; font-style:italic; color: var(--text-muted);">This may take a minute for large papers.</p>
             </div>
             `;
-            
-            startSimulatedProgress();
 
             if (['xlsx', 'xls', 'csv'].includes(ext)) {
-                // Parse locally, then send text to AI
+                // Batch processing for Excel files (TRUE PROGRESS BAR)
                 const reader = new FileReader();
                 reader.onload = async (e) => {
                     try {
@@ -421,29 +446,75 @@
                         const workbook = XLSX.read(data, {type: 'array'});
                         const json = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
                         
-                        let textContent = json.map((r, idx) => {
+                        let allQuestions = json.map((r, idx) => {
                             const keys = Object.keys(r);
                             const qKey = keys.find(k => String(k).toLowerCase().includes('question') || String(k).toLowerCase().includes('text'));
                             const qNoKey = keys.find(k => String(k).toLowerCase().includes('q no') || String(k).toLowerCase().includes('no'));
-                            return `[QNo: ${r[qNoKey] || (idx+1)}] ${r[qKey] || ''}`;
-                        }).join('\n');
+                            if (!r[qKey]) return null;
+                            return `[QNo: ${r[qNoKey] || (idx+1)}] ${r[qKey]}`;
+                        }).filter(q => q !== null);
 
-                        if (!textContent.trim()) throw new Error("Could not extract question text.");
-                        await sendToAI({ textContent });
+                        if (allQuestions.length === 0) throw new Error("Could not extract question text. Ensure there is a 'Question' column.");
+
+                        const BATCH_SIZE = 40;
+                        let allResults = [];
+                        let totalBatches = Math.ceil(allQuestions.length / BATCH_SIZE);
+                        
+                        updateProgressUI(0, `Found ${allQuestions.length} questions. Processing batch 1 of ${totalBatches}...`);
+
+                        for (let i = 0; i < totalBatches; i++) {
+                            const batchText = allQuestions.slice(i * BATCH_SIZE, (i + 1) * BATCH_SIZE).join('\n');
+                            
+                            try {
+                                const results = await processAIBatch({ textContent: batchText });
+                                allResults = allResults.concat(results);
+                                
+                                const currentPct = Math.round(((i + 1) / totalBatches) * 100);
+                                if (i + 1 < totalBatches) {
+                                    updateProgressUI(currentPct, `Batch ${i+1} complete. Processing batch ${i+2} of ${totalBatches}...`);
+                                } else {
+                                    updateProgressUI(100, `All batches complete! Finalizing report...`);
+                                }
+                            } catch (batchErr) {
+                                throw new Error(`Failed to process batch ${i+1}: ` + batchErr.message);
+                            }
+                        }
+                        
+                        setTimeout(() => {
+                            restoreUploadUI();
+                            analyzeData(allResults);
+                        }, 500);
+
                     } catch (err) {
-                        if (progressInterval) clearInterval(progressInterval);
-                        alert("Error parsing Excel file. Ensure there is a 'Question' column.");
+                        alert("Error: " + err.message);
                         resetApp();
                     }
                 };
                 reader.readAsArrayBuffer(file);
             } else {
-                // PDF or Image -> Convert to Base64 and send to Gemini API
+                // PDF or Image -> Single request with simulated progress
+                startSimulatedProgress();
                 const reader = new FileReader();
                 reader.onload = async (e) => {
                     const base64Data = e.target.result.split(',')[1];
                     const mimeType = file.type || 'application/pdf';
-                    await sendToAI({ fileData: base64Data, mimeType });
+                    
+                    updateProgressUI(0, "Running OCR and deeply analyzing PDF/Image document...");
+                    
+                    try {
+                        const results = await processAIBatch({ fileData: base64Data, mimeType });
+                        if (progressInterval) clearInterval(progressInterval);
+                        updateProgressUI(100, "Done! Finalizing report...");
+                        
+                        setTimeout(() => {
+                            restoreUploadUI();
+                            analyzeData(results);
+                        }, 500);
+                    } catch(err) {
+                        if (progressInterval) clearInterval(progressInterval);
+                        alert('Error during AI analysis: ' + err.message);
+                        resetApp();
+                    }
                 };
                 reader.readAsDataURL(file);
             }

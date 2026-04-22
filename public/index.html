@@ -334,6 +334,27 @@ body {
 }
 .footer strong { color: white; }
 
+/* ── SHOWCASE & BENEFITS ── */
+.showcase-row { display: flex; gap: 40px; align-items: center; margin-bottom: 40px; background: white; padding: 40px; border-radius: 16px; border: 1px solid var(--border); box-shadow: 0 4px 20px rgba(0,0,0,0.03); }
+.showcase-row:nth-child(even) { flex-direction: row-reverse; }
+.showcase-info { flex: 1; }
+.showcase-visual { flex: 1; min-width: 300px; }
+.sc-badge { display: inline-block; padding: 6px 12px; background: #eff6ff; color: #1e40af; border-radius: 8px; font-size: 12px; font-weight: 700; margin-bottom: 16px; }
+.sc-title { font-size: 24px; font-weight: 800; color: var(--navy); margin-bottom: 12px; }
+.sc-desc { font-size: 15px; color: var(--muted); line-height: 1.6; margin-bottom: 24px; }
+.sc-features strong { display: block; font-size: 13px; color: var(--navy); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+.sc-features ul { list-style: none; padding: 0; }
+.sc-features li { font-size: 14px; color: var(--muted); margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+
+.showcase-panel { background: rgba(255,255,255,0.9); border: 1px solid var(--border); padding: 24px; border-radius: 12px; box-shadow: 0 10px 30px -10px rgba(0,0,0,0.05); }
+
+.benefits-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 24px; margin-bottom: 64px; }
+.benefit-card { background: white; padding: 24px; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 4px 6px rgba(0,0,0,0.02); transition: transform 0.2s; }
+.benefit-card:hover { transform: translateY(-3px); }
+.benefit-icon { font-size: 32px; margin-bottom: 16px; }
+.benefit-card h4 { font-size: 18px; color: var(--navy); margin-bottom: 12px; font-weight: 700; }
+.benefit-card p { font-size: 14px; color: var(--muted); line-height: 1.6; }
+
 @media(max-width:768px){
   .hero h1 { font-size: 36px; }
   .hero p { font-size: 16px; }
@@ -342,6 +363,7 @@ body {
   .topbar { padding: 0 20px; }
   .nav-links { display: none; }
   .tool-grid { grid-template-columns: 1fr; }
+  .showcase-row, .showcase-row:nth-child(even) { flex-direction: column; padding: 24px; }
 }
 </style>
 </head>
@@ -359,11 +381,11 @@ body {
   </a>
   <div class="nav-links">
     <a class="nav-link active" href="#tools">Tools</a>
-    <a class="nav-link" href="#prompts">Prompts</a>
-    <a class="nav-link" href="#roadmap">Roadmap</a>
-    <a class="nav-link" href="#structure">File Structure</a>
+    <a class="nav-link" href="#workflow">Workflow</a>
+    <a class="nav-link" href="#showcase">Results Showcase</a>
+    <a class="nav-link" href="#benefits">Benefits</a>
   </div>
-  <a class="nav-cta" href="mailto:you@biorivet.com">Contact Support</a>
+  <a class="nav-cta" href="mailto:obs.biofac@gmail.com">Contact Support</a>
 </div>
 
 <!-- HERO -->
@@ -422,30 +444,6 @@ body {
         </div>
       </div>
 
-      <!-- TOOL 2: DROPOUT TRACKER (LIVE) -->
-      <div class="tool-card">
-        <div class="featured-ribbon" style="background: #ea580c;">LIVE</div>
-        <div class="card-color-bar" style="background:linear-gradient(90deg,#c2410c,#f97316)"></div>
-        <div class="card-body">
-          <div class="card-icon" style="background:#fff7ed; color:#ea580c;">⚠️</div>
-          <div class="card-meta">
-            <span class="meta-badge" style="background:#eff6ff;color:#1e40af">B2B</span>
-            <span class="meta-badge" style="background:#fff7ed;color:#c2410c">Intervention</span>
-          </div>
-          <div class="card-title">Student Dropout Risk Tracker</div>
-          <div class="card-desc">Flag at-risk students before they leave. Upload attendance, test scores, and fee status. Get a risk score per student, early warning alerts, and auto-generated intervention plans. Stop silent revenue bleed.</div>
-          <div class="card-tags">
-            <span class="tag">Dropout Prediction</span>
-            <span class="tag">Risk Scoring</span>
-            <span class="tag">Revenue Protection</span>
-          </div>
-          <div class="card-footer">
-            <button onclick="openTool('dropout-tracker.html')" class="card-btn card-btn-primary">Open Tool →</button>
-            <div class="card-status"><div class="dot-live"></div> Live</div>
-          </div>
-        </div>
-      </div>
-
       <!-- TOOL 3: DIFFICULTY ANALYSER (LIVE) -->
       <div class="tool-card">
         <div class="featured-ribbon" style="background: #9333ea;">LIVE</div>
@@ -465,6 +463,30 @@ body {
           </div>
           <div class="card-footer">
             <button onclick="openTool('difficulty-analyser.html')" class="card-btn card-btn-primary">Open Tool →</button>
+            <div class="card-status"><div class="dot-live"></div> Live</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TOOL 2: DROPOUT TRACKER (LIVE) -->
+      <div class="tool-card">
+        <div class="featured-ribbon" style="background: #ea580c;">LIVE</div>
+        <div class="card-color-bar" style="background:linear-gradient(90deg,#c2410c,#f97316)"></div>
+        <div class="card-body">
+          <div class="card-icon" style="background:#fff7ed; color:#ea580c;">⚠️</div>
+          <div class="card-meta">
+            <span class="meta-badge" style="background:#eff6ff;color:#1e40af">B2B</span>
+            <span class="meta-badge" style="background:#fff7ed;color:#c2410c">Intervention</span>
+          </div>
+          <div class="card-title">Student Dropout Risk Tracker</div>
+          <div class="card-desc">Flag at-risk students before they leave. Upload attendance, test scores, and fee status. Get a risk score per student, early warning alerts, and auto-generated intervention plans. Stop silent revenue bleed.</div>
+          <div class="card-tags">
+            <span class="tag">Dropout Prediction</span>
+            <span class="tag">Risk Scoring</span>
+            <span class="tag">Revenue Protection</span>
+          </div>
+          <div class="card-footer">
+            <button onclick="openTool('dropout-tracker.html')" class="card-btn card-btn-primary">Open Tool →</button>
             <div class="card-status"><div class="dot-live"></div> Live</div>
           </div>
         </div>
@@ -514,77 +536,303 @@ body {
         </div>
       </div>
 
-      <!-- ADD NEW TOOL CARD -->
-      <a class="add-card" href="#prompts">
-        <div class="add-icon">✨</div>
-        <div class="add-label">Build a New Tool</div>
-        <div class="add-sub">Use the prompts below to build in<br>Antigravity and add it here</div>
-      </a>
+
 
     </div>
   </div>
 
-  <!-- ── ROADMAP ── -->
-  <div id="roadmap">
+  <!-- ── FLAGSHIP PRODUCT SHOWCASE ── -->
+  <div id="flagship-showcase" style="margin-bottom: 64px;">
     <div class="section-header">
-      <div class="section-title">🗺 Build Roadmap</div>
-      <div class="section-sub">Tracking progress of the BioRivet platform rollout.</div>
+      <div class="section-title">🌟 Flagship Product Showcase: NEET Diagnostic Tool</div>
+      <div class="section-sub">Experience the power of our flagship tool. No data entry, just instant actionable insights.</div>
+    </div>
+    
+    <div class="mockup-container" style="background: white; border: 1px solid var(--border); border-radius: 16px; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.08);">
+       <!-- Header -->
+       <div style="background: var(--navy); color: white; padding: 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+          <div>
+             <h2 style="font-size: 20px; font-weight: 700; margin-bottom: 4px;">Diagnostic Report: AIIMS Delhi Target Batch</h2>
+             <div style="font-size: 13px; color: #94a3b8;">Test: Full Syllabus Mock 4 &bull; Generated: Today</div>
+          </div>
+          <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+             <div style="background: rgba(255,255,255,0.1); padding: 12px 20px; border-radius: 8px; text-align: center;">
+                <div style="font-size: 24px; font-weight: 800; color: #60a5fa;">30</div>
+                <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.8;">Students Analysed</div>
+             </div>
+             <div style="background: rgba(255,255,255,0.1); padding: 12px 20px; border-radius: 8px; text-align: center;">
+                <div style="font-size: 24px; font-weight: 800; color: #f472b6;">90</div>
+                <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.8;">Questions</div>
+             </div>
+             <div style="background: rgba(255,255,255,0.1); padding: 12px 20px; border-radius: 8px; text-align: center;">
+                <div style="font-size: 24px; font-weight: 800; color: #f87171;">5</div>
+                <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.8;">High Risk</div>
+             </div>
+             <div style="background: rgba(255,255,255,0.1); padding: 12px 20px; border-radius: 8px; text-align: center;">
+                <div style="font-size: 16px; font-weight: 800; color: #fbbf24; margin-top: 4px; margin-bottom: 4px;">Circulation</div>
+                <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.8;">Weakest Chapter</div>
+             </div>
+          </div>
+       </div>
+
+       <!-- Dashboard Body -->
+       <div style="padding: 32px; background: #f8fafc;">
+          
+          <div style="display: flex; gap: 24px; flex-wrap: wrap;">
+             <!-- Section A: Chapter Analysis -->
+             <div style="flex: 2; min-width: 340px; background: white; border: 1px solid var(--border); border-radius: 12px; padding: 24px; box-shadow: 0 4px 6px rgba(0,0,0,0.02);">
+                <h3 style="font-size: 16px; font-weight: 700; color: var(--navy); margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">📊 Section A: Chapter Concept Gaps</h3>
+                <div style="overflow-x: auto;">
+                  <table style="width: 100%; border-collapse: collapse; font-size: 14px; min-width: 400px;">
+                     <thead>
+                        <tr style="background: #f1f5f9; color: var(--muted); text-align: left; font-size: 12px; text-transform: uppercase;">
+                           <th style="padding: 12px 16px; border-radius: 8px 0 0 8px;">Chapter Name</th>
+                           <th style="padding: 12px 16px;">Accuracy</th>
+                           <th style="padding: 12px 16px; border-radius: 0 8px 8px 0;">Status</th>
+                        </tr>
+                     </thead>
+                     <tbody>
+                        <tr>
+                           <td style="padding: 16px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">Digestion & Absorption</td>
+                           <td style="padding: 16px; border-bottom: 1px solid #e2e8f0;">
+                              <div style="display: flex; align-items: center; gap: 12px;">
+                                 <div style="flex: 1; height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden;">
+                                    <div style="width: 82%; height: 100%; background: #10b981;"></div>
+                                 </div>
+                                 <span style="font-weight: 700; color: var(--navy); min-width: 32px;">82%</span>
+                              </div>
+                           </td>
+                           <td style="padding: 16px; border-bottom: 1px solid #e2e8f0;"><span style="background: #dcfce7; color: #166534; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; white-space: nowrap;">Strong</span></td>
+                        </tr>
+                        <tr>
+                           <td style="padding: 16px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">Body Fluids & Circulation</td>
+                           <td style="padding: 16px; border-bottom: 1px solid #e2e8f0;">
+                              <div style="display: flex; align-items: center; gap: 12px;">
+                                 <div style="flex: 1; height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden;">
+                                    <div style="width: 35%; height: 100%; background: #ef4444;"></div>
+                                 </div>
+                                 <span style="font-weight: 700; color: var(--navy); min-width: 32px;">35%</span>
+                              </div>
+                           </td>
+                           <td style="padding: 16px; border-bottom: 1px solid #e2e8f0;"><span style="background: #fef2f2; color: #991b1b; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; white-space: nowrap;">Needs Attention</span></td>
+                        </tr>
+                        <tr>
+                           <td style="padding: 16px; font-weight: 600;">Locomotion & Movement</td>
+                           <td style="padding: 16px;">
+                              <div style="display: flex; align-items: center; gap: 12px;">
+                                 <div style="flex: 1; height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden;">
+                                    <div style="width: 68%; height: 100%; background: #f59e0b;"></div>
+                                 </div>
+                                 <span style="font-weight: 700; color: var(--navy); min-width: 32px;">68%</span>
+                              </div>
+                           </td>
+                           <td style="padding: 16px;"><span style="background: #fef3c7; color: #92400e; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; white-space: nowrap;">Review Needed</span></td>
+                        </tr>
+                     </tbody>
+                  </table>
+                </div>
+             </div>
+
+             <!-- Section C: Batch Insights -->
+             <div style="flex: 1; min-width: 280px; background: white; border: 1px solid var(--border); border-radius: 12px; padding: 24px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); display: flex; flex-direction: column;">
+                <h3 style="font-size: 16px; font-weight: 700; color: var(--navy); margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">🧠 Section C: AI Batch Insights</h3>
+                <div style="flex: 1; display: flex; flex-direction: column; gap: 16px;">
+                   <div style="display: flex; gap: 12px;">
+                      <div style="font-size: 20px;">🔴</div>
+                      <div>
+                         <div style="font-weight: 700; color: var(--navy); font-size: 14px;">Biggest Gap</div>
+                         <div style="font-size: 13px; color: var(--muted); margin-top: 2px;">"ECG and Cardiac Cycle" is costing the batch an average of 8 marks.</div>
+                      </div>
+                   </div>
+                   <div style="display: flex; gap: 12px;">
+                      <div style="font-size: 20px;">🟢</div>
+                      <div>
+                         <div style="font-weight: 700; color: var(--navy); font-size: 14px;">Strongest Area</div>
+                         <div style="font-size: 13px; color: var(--muted); margin-top: 2px;">"Alimentary Canal" shows 92% accuracy across the batch.</div>
+                      </div>
+                   </div>
+                   <div style="display: flex; gap: 12px;">
+                      <div style="font-size: 20px;">⚠️</div>
+                      <div>
+                         <div style="font-weight: 700; color: var(--navy); font-size: 14px;">Dominant Error Type</div>
+                         <div style="font-size: 13px; color: var(--muted); margin-top: 2px;">Silly mistakes in "Assertion/Reason" questions for Genetics.</div>
+                      </div>
+                   </div>
+                </div>
+             </div>
+          </div>
+
+          <!-- Section B: Student Diagnosis -->
+          <div style="background: white; border: 1px solid var(--border); border-radius: 12px; padding: 24px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); margin-top: 24px; overflow-x: auto;">
+             <h3 style="font-size: 16px; font-weight: 700; color: var(--navy); margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">🧑‍🎓 Section B: Individual Student Diagnosis</h3>
+             <table style="width: 100%; border-collapse: collapse; font-size: 14px; min-width: 600px;">
+                <thead>
+                   <tr style="background: #f1f5f9; color: var(--muted); text-align: left; font-size: 12px; text-transform: uppercase;">
+                      <th style="padding: 12px 16px; border-radius: 8px 0 0 8px;">Student Name</th>
+                      <th style="padding: 12px 16px;">Score</th>
+                      <th style="padding: 12px 16px;">Priority Level</th>
+                      <th style="padding: 12px 16px; border-radius: 0 8px 8px 0;">Prescribed Action Plan</th>
+                   </tr>
+                </thead>
+                <tbody>
+                   <tr>
+                      <td style="padding: 16px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">Om Bikash Sahu</td>
+                      <td style="padding: 16px; border-bottom: 1px solid #e2e8f0; font-weight: 700; color: var(--navy);">312 / 720</td>
+                      <td style="padding: 16px; border-bottom: 1px solid #e2e8f0;"><span style="background: #fef2f2; color: #991b1b; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; white-space: nowrap;">High Priority</span></td>
+                      <td style="padding: 16px; border-bottom: 1px solid #e2e8f0; color: var(--muted);">Revise <strong style="color:var(--navy);">Circulation</strong> basics. Attempt 50 level-1 MCQs.</td>
+                   </tr>
+                   <tr>
+                      <td style="padding: 16px; font-weight: 600;">Anjali Gupta</td>
+                      <td style="padding: 16px; font-weight: 700; color: var(--navy);">640 / 720</td>
+                      <td style="padding: 16px;"><span style="background: #fef3c7; color: #92400e; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; white-space: nowrap;">Medium Priority</span></td>
+                      <td style="padding: 16px; color: var(--muted);">Focus on <strong style="color:var(--navy);">Assertion/Reason</strong> questions in Genetics.</td>
+                   </tr>
+                </tbody>
+             </table>
+          </div>
+
+       </div>
+    </div>
+  </div>
+
+  <!-- ── WORKFLOW ── -->
+  <div id="workflow">
+    <div class="section-header">
+      <div class="section-title">🔄 Tool 1: The Diagnostic Journey</div>
+      <div class="section-sub">How BioRivet turns raw marks into actionable faculty insights.</div>
     </div>
 
     <div class="roadmap">
-      <div class="rm-item done">
-        <div class="rm-circle rm-done">✓</div>
-        <div class="rm-label">Diagnostic Tool</div>
-        <div class="rm-sub">Tool 1 Live</div>
-      </div>
-      <div class="rm-item done">
-        <div class="rm-circle rm-done">✓</div>
-        <div class="rm-label">Dropout Tracker</div>
-        <div class="rm-sub">Tool 2 Live</div>
-      </div>
-      <div class="rm-item done">
-        <div class="rm-circle rm-done">✓</div>
-        <div class="rm-label">Difficulty Analyser</div>
-        <div class="rm-sub">Tool 3 Live</div>
-      </div>
-      <div class="rm-item done">
-        <div class="rm-circle rm-active">4</div>
-        <div class="rm-label">First Demo</div>
-        <div class="rm-sub">Show to owner</div>
+      <div class="rm-item">
+        <div class="rm-circle rm-active" style="background:#ef4444; border-color:#fef2f2;">1</div>
+        <div class="rm-label">The Problem</div>
+        <div class="rm-sub">Hidden Concept Gaps After Tests</div>
       </div>
       <div class="rm-item">
-        <div class="rm-circle rm-future">5</div>
-        <div class="rm-label">First Client</div>
-        <div class="rm-sub">₹5–10K paid</div>
+        <div class="rm-circle rm-active" style="background:#2563eb; border-color:#eff6ff;">2</div>
+        <div class="rm-label">The Action</div>
+        <div class="rm-sub">Upload OMR Data to Tool 1</div>
       </div>
       <div class="rm-item">
-        <div class="rm-circle rm-future">6</div>
-        <div class="rm-label">Full Suite</div>
-        <div class="rm-sub">All 5 tools live</div>
+        <div class="rm-circle rm-active" style="background:#10b981; border-color:#dcfce7;">3</div>
+        <div class="rm-label">The Solution</div>
+        <div class="rm-sub">Targeted Revision & Action Plans</div>
       </div>
     </div>
   </div>
 
-  <!-- ── FILE STRUCTURE ── -->
-  <div id="structure">
+  <!-- ── RESULTS SHOWCASE ── -->
+  <div id="showcase">
     <div class="section-header">
-      <div class="section-title">📁 File Structure</div>
-      <div class="section-sub">Keep all tools in one folder. Add new tools any time.</div>
+      <div class="section-title">✨ Visual Results Showcase</div>
+      <div class="section-sub">Real reports generated by our platform. Know exactly what features to look for.</div>
     </div>
 
-    <div class="prompt-card" style="padding: 0; background: transparent; border: none; box-shadow: none;">
-      <div class="file-tree">
-<span class="ft-folder">biorivet-tools/</span>
-│
-├── <span class="ft-html">index.html</span>                          <span class="ft-note">← This master website (you are here)</span>
-│
-├── <span class="ft-html">BioRivet_Diagnostic_Tool_v2 (1).html</span><span class="ft-note">← Tool 1 (LIVE)</span>
-├── <span class="ft-html">dropout-tracker.html</span>                <span class="ft-note">← Tool 2 (LIVE)</span>
-├── <span class="ft-html">difficulty-analyser.html</span>            <span class="ft-note">← Tool 3 (LIVE)</span>
-├── <span class="ft-html">score-predictor.html</span>                <span class="ft-note">← Tool 4</span>
-├── <span class="ft-html">batch-comparison.html</span>               <span class="ft-note">← Tool 5</span>
-│
-└── <span class="ft-note">← Add any new tool here. Then add a card in index.html.</span>
+
+
+    <!-- Tool 3 Showcase -->
+    <div class="showcase-row">
+      <div class="showcase-info">
+        <div class="sc-badge" style="background:#faf5ff; color:#7e22ce;">Tool 3: Difficulty Analyser</div>
+        <h3 class="sc-title">AI Difficulty Audit Output</h3>
+        <p class="sc-desc">Ensure your test papers meet NEET standards before printing. Our AI scans the paper and builds a balanced distribution chart.</p>
+        <div class="sc-features">
+          <strong>Key Features to Look For:</strong>
+          <ul>
+            <li>✓ Target Balance Tracking (30/45/25)</li>
+            <li>✓ AI-driven Strict NEET Rubric Classification</li>
+            <li>✓ Question-by-Question reasoning breakdown</li>
+          </ul>
+        </div>
+      </div>
+      <div class="showcase-visual">
+        <div class="showcase-panel">
+          <h3 style="font-size: 16px; margin-bottom: 20px; font-weight:700;">AI Difficulty Audit Output</h3>
+          <div style="display:flex; align-items:center; gap:20px;">
+            <div style="width:120px; height:120px; border-radius:50%; background:conic-gradient(#10b981 0% 30%, #f59e0b 30% 75%, #ef4444 75% 100%); flex-shrink:0;"></div>
+            <div>
+              <div style="margin-bottom:8px; font-size:14px;">🟢 <strong>30%</strong> Easy</div>
+              <div style="margin-bottom:8px; font-size:14px;">🟡 <strong>45%</strong> Medium</div>
+              <div style="margin-bottom:8px; font-size:14px;">🔴 <strong>25%</strong> Hard</div>
+              <div style="margin-top:12px; font-size:12px; color:#166534; background:#dcfce7; padding:4px 8px; border-radius:4px; display:inline-block; font-weight:600;">✅ Perfect Balance</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tool 2 Showcase -->
+    <div class="showcase-row">
+      <div class="showcase-info">
+        <div class="sc-badge" style="background:#fff7ed; color:#c2410c;">Tool 2: Dropout Tracker</div>
+        <h3 class="sc-title">Early Warning Risk Board</h3>
+        <p class="sc-desc">Stop silent revenue bleed. The tracker aggregates attendance and scores to flag students who are likely to drop out.</p>
+        <div class="sc-features">
+          <strong>Key Features to Look For:</strong>
+          <ul>
+            <li>✓ Predictive High/Medium/Low Risk Scoring</li>
+            <li>✓ Auto-generated Intervention Action Plans</li>
+            <li>✓ Parent Communication Talking Points</li>
+          </ul>
+        </div>
+      </div>
+      <div class="showcase-visual">
+        <div class="showcase-panel">
+          <h3 style="font-size: 16px; margin-bottom: 12px; font-weight:700;">Student Risk Assessment</h3>
+          <table style="width:100%; font-size:13px; border-collapse: collapse;">
+            <tr style="background:#f1f5f9; text-align:left;">
+              <th style="padding:8px; font-weight:600;">Student</th>
+              <th style="padding:8px; font-weight:600;">Attendance</th>
+              <th style="padding:8px; font-weight:600;">Risk Level</th>
+            </tr>
+            <tr>
+              <td style="padding:8px; border-bottom:1px solid #e2e8f0;">Rahul Sharma</td>
+              <td style="padding:8px; border-bottom:1px solid #e2e8f0;">45% 📉</td>
+              <td style="padding:8px; border-bottom:1px solid #e2e8f0; color:#ef4444; font-weight:600;">High Risk (88%)</td>
+            </tr>
+            <tr>
+              <td style="padding:8px; border-bottom:1px solid #e2e8f0;">Sneha Patel</td>
+              <td style="padding:8px; border-bottom:1px solid #e2e8f0;">92% 📈</td>
+              <td style="padding:8px; border-bottom:1px solid #e2e8f0; color:#10b981; font-weight:600;">Safe (12%)</td>
+            </tr>
+            <tr>
+              <td style="padding:8px;">Aman Verma</td>
+              <td style="padding:8px;">68% ⚠️</td>
+              <td style="padding:8px; color:#f59e0b; font-weight:600;">Monitor (65%)</td>
+            </tr>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── BENEFITS ── -->
+  <div id="benefits">
+    <div class="section-header">
+      <div class="section-title">💎 Tool-Specific Benefits</div>
+      <div class="section-sub">Why Tier 2 coaching institutes are switching to BioRivet.</div>
+    </div>
+    
+    <div class="benefits-grid">
+      <div class="benefit-card">
+        <div class="benefit-icon">📊</div>
+        <h4>Diagnostic Tool (Tool 1)</h4>
+        <p><strong>Batch Intelligence:</strong> Go beyond raw marks. Pinpoint the exact sub-topics where your entire batch is failing, allowing faculty to conduct laser-focused revision classes.</p>
+      </div>
+      <div class="benefit-card">
+        <div class="benefit-icon">🎯</div>
+        <h4>Difficulty Analyser (Tool 3)</h4>
+        <p><strong>AI Quality Control:</strong> Ensure every test paper adheres to strict NEET standards (30/45/25 balance) before printing, completely automated by our Gemini AI.</p>
+      </div>
+      <div class="benefit-card">
+        <div class="benefit-icon">⚠️</div>
+        <h4>Dropout Tracker (Tool 2)</h4>
+        <p><strong>Revenue Protection:</strong> Flag unmotivated and struggling students weeks before they quit. Intervene early with auto-generated action plans and save your revenue.</p>
+      </div>
+      <div class="benefit-card">
+        <div class="benefit-icon">🔒</div>
+        <h4>Core Architecture</h4>
+        <p><strong>100% Offline & Secure:</strong> No software installations. No uploading student data to the cloud. All diagnostic math runs securely inside your own local browser.</p>
       </div>
     </div>
   </div>
