@@ -373,18 +373,44 @@
         // Update the initial upload section UI to match the new AI powered one
         restoreUploadUI();
 
+        let progressInterval;
+
+        function startSimulatedProgress() {
+            let progress = 0;
+            const bar = document.getElementById('ai-progress-bar');
+            const txt = document.getElementById('ai-progress-text');
+            
+            if (progressInterval) clearInterval(progressInterval);
+            
+            progressInterval = setInterval(() => {
+                const remaining = 95 - progress;
+                progress += Math.max(0.3, remaining * 0.05); // Approaches 95% asymptotically
+                
+                if (bar) bar.style.width = progress + '%';
+                if (txt) txt.innerText = Math.round(progress) + '%';
+            }, 600);
+        }
+
         async function processFile(file) {
             const ext = file.name.split('.').pop().toLowerCase();
             
-            // Show loading UI
+            // Show loading UI with progress bar
             document.getElementById('upload-section').innerHTML = `
             <div style="text-align:center; padding: 4rem 2rem; background: var(--card-bg); border-radius: 12px; border: 2px solid var(--accent);">
                 <div style="font-size: 3rem; margin-bottom: 1rem; animation: pulse 1.5s infinite;">🧠</div>
                 <h2 style="color: var(--accent); margin-bottom: 0.5rem;">AI is auditing your paper...</h2>
                 <p style="color: var(--text-muted);">Extracting questions, running OCR (if needed), analyzing conceptual depth, and determining difficulty levels.</p>
-                <p style="font-size:0.85rem; margin-top:1rem; font-style:italic;">This usually takes 10-30 seconds depending on the paper length.</p>
+                
+                <div style="width: 80%; max-width: 400px; margin: 1.5rem auto 0.5rem auto; background: #e2e8f0; border-radius: 20px; overflow: hidden; height: 10px;">
+                    <div id="ai-progress-bar" style="width: 0%; height: 100%; background: var(--accent); transition: width 0.4s ease;"></div>
+                </div>
+                <p id="ai-progress-text" style="font-size:0.9rem; font-weight: 600; color: var(--accent); margin-top: 0;">0%</p>
+                
+                <p style="font-size:0.85rem; margin-top:1rem; font-style:italic; color: var(--text-muted);">This usually takes 10-30 seconds depending on the paper length.</p>
             </div>
             `;
+            
+            startSimulatedProgress();
 
             if (['xlsx', 'xls', 'csv'].includes(ext)) {
                 // Parse locally, then send text to AI
@@ -405,6 +431,7 @@
                         if (!textContent.trim()) throw new Error("Could not extract question text.");
                         await sendToAI({ textContent });
                     } catch (err) {
+                        if (progressInterval) clearInterval(progressInterval);
                         alert("Error parsing Excel file. Ensure there is a 'Question' column.");
                         resetApp();
                     }
@@ -431,6 +458,8 @@
                 });
                 const data = await response.json();
                 
+                if (progressInterval) clearInterval(progressInterval);
+                
                 if (data.error) {
                     alert('AI Error: ' + data.error);
                     resetApp();
@@ -438,6 +467,12 @@
                 }
 
                 if (data.results && data.results.length > 0) {
+                    // Complete the progress bar visually before transitioning
+                    const bar = document.getElementById('ai-progress-bar');
+                    const txt = document.getElementById('ai-progress-text');
+                    if (bar) bar.style.width = '100%';
+                    if (txt) txt.innerText = '100%';
+                    
                     // Reformat to match the expected format for analyzeData
                     const mappedData = data.results.map(r => ({
                         'Q No': r.qno,
@@ -446,13 +481,17 @@
                         'Marks': r.marks || 4
                     }));
                     
-                    restoreUploadUI();
-                    analyzeData(mappedData);
+                    // Small delay so user sees 100% completion
+                    setTimeout(() => {
+                        restoreUploadUI();
+                        analyzeData(mappedData);
+                    }, 500);
                 } else {
                     alert('No questions were found or extracted by the AI.');
                     resetApp();
                 }
             } catch (err) {
+                if (progressInterval) clearInterval(progressInterval);
                 alert('Network error during AI analysis.');
                 resetApp();
             }
