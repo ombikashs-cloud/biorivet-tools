@@ -279,15 +279,15 @@
                         <div class="legend">
                             <div class="legend-item">
                                 <div><span class="legend-color" style="background: var(--easy);"></span>Easy</div>
-                                <div><strong id="legend-easy">0%</strong> <span style="color:var(--text-muted);font-size:0.8em">(Ideal: 20%)</span></div>
+                                <div><strong id="legend-easy">0%</strong> <span style="color:var(--text-muted);font-size:0.8em">(Ideal: 30%)</span></div>
                             </div>
                             <div class="legend-item">
                                 <div><span class="legend-color" style="background: var(--medium);"></span>Medium</div>
-                                <div><strong id="legend-medium">0%</strong> <span style="color:var(--text-muted);font-size:0.8em">(Ideal: 50%)</span></div>
+                                <div><strong id="legend-medium">0%</strong> <span style="color:var(--text-muted);font-size:0.8em">(Ideal: 45%)</span></div>
                             </div>
                             <div class="legend-item">
                                 <div><span class="legend-color" style="background: var(--hard);"></span>Hard</div>
-                                <div><strong id="legend-hard">0%</strong> <span style="color:var(--text-muted);font-size:0.8em">(Ideal: 30%)</span></div>
+                                <div><strong id="legend-hard">0%</strong> <span style="color:var(--text-muted);font-size:0.8em">(Ideal: 25%)</span></div>
                             </div>
                         </div>
                     </div>
@@ -572,7 +572,7 @@
             const maxChap = topChapters.length > 0 ? topChapters[0].chapter : '-';
 
             // Top hardest chapters (by % of hard questions, minimum 2 questions to count to avoid skew)
-            const hardestChapters = [...chapterAnalysis].filter(c => c.total >= 2).sort((a,b) => b.hardPct - a.hardPct).slice(0, 3);
+            const hardestChapters = [...chapterAnalysis].filter(c => c.total >= 2 && c.hardPct > 0).sort((a,b) => b.hardPct - a.hardPct).slice(0, 3);
 
             // Update UI
             document.getElementById('metric-total').innerText = totalQ;
