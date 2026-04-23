@@ -240,6 +240,7 @@ input[type=file]{display:none}
     <div class="rtab active" id="rtab-a" onclick="showRTab('a')">Section A · Chapter Analysis</div>
     <div class="rtab" id="rtab-b" onclick="showRTab('b')">Section B · Students</div>
     <div class="rtab" id="rtab-c" onclick="showRTab('c')">Section C · Batch Insights</div>
+    <div class="rtab" id="rtab-d" onclick="showRTab('d')">Section D · Hardest Questions</div>
     <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn btn-green" onclick="exportExcel()">⬇ Export Full Report (.xlsx)</button>
       <button class="btn btn-secondary" onclick="resetTool()">↩ New Analysis</button>
@@ -258,15 +259,27 @@ input[type=file]{display:none}
 
   <div id="rpt-b" style="display:none">
     <div class="card">
-      <div class="section-hdr">Section B — Individual Student Diagnosis & 3-Day Action Plan</div>
+      <div class="section-hdr">Section B — Individual Student Diagnosis & Personalised Action Plan</div>
       <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;align-items:center">
         <span style="font-size:12px;color:#666">Sort:</span>
         <button class="btn btn-secondary" onclick="sortStudents('name')"  style="padding:4px 10px;font-size:11px">Name</button>
-        <button class="btn btn-secondary" onclick="sortStudents('score')" style="padding:4px 10px;font-size:11px">Score ↑</button>
+        <button class="btn btn-secondary" onclick="sortStudents('score')" style="padding:4px 10px;font-size:11px">Marks ↑</button>
         <button class="btn btn-secondary" onclick="sortStudents('wrong')" style="padding:4px 10px;font-size:11px">Wrong ↓</button>
         <button class="btn btn-secondary" onclick="sortStudents('pri')"   style="padding:4px 10px;font-size:11px">Priority</button>
+        <span style="font-size:12px;color:#666;margin-left:8px">Filter:</span>
+        <select id="sb-filter" onchange="renderSecB(SORT_KEY)" style="padding:4px 10px;font-size:11px;border:1px solid #90CAF9;border-radius:6px;background:#E3F2FD;color:#0D47A1;font-weight:600">
+          <option value="all">All students</option>
+          <option value="high">🔴 High Risk only</option>
+          <option value="medium">🟡 Medium Risk only</option>
+          <option value="low">🟢 Low Risk only</option>
+        </select>
+        <input id="sb-search" type="text" placeholder="Search by name..." oninput="renderSecB(SORT_KEY)"
+          style="padding:4px 10px;font-size:11px;border:1px solid #ccd6e8;border-radius:6px;width:160px">
       </div>
-      <div style="background:#f0f4fb;border-radius:6px;padding:8px 14px;margin-bottom:8px;font-size:11px;font-weight:700;color:#555" id="rpt-b-header"></div>
+      <div style="background:#f0f4fb;border-radius:6px;padding:8px 14px;margin-bottom:8px;font-size:11px;font-weight:700;color:#555;display:flex;justify-content:space-between;align-items:center">
+        <div id="rpt-b-header"></div>
+        <div id="rpt-b-count" style="font-weight:400;color:#888"></div>
+      </div>
       <div id="rpt-b-body"></div>
     </div>
   </div>
@@ -275,6 +288,19 @@ input[type=file]{display:none}
     <div class="card">
       <div class="section-hdr">Section C — Batch Intelligence Summary</div>
       <div id="rpt-c-body"></div>
+    </div>
+    <div class="footer">Powered by BioRivet AI Diagnostic &nbsp;·&nbsp; Know More. Fear Less. &nbsp;·&nbsp; biorivet.com</div>
+  </div>
+
+  <div id="rpt-d" style="display:none">
+    <div class="card">
+      <div class="section-hdr">Section D — Hardest Questions (Batch-Wide)</div>
+      <p style="font-size:12px;color:#666;margin-bottom:14px">Questions where ≥50% of students who attempted got it wrong. These reveal either teaching gaps or genuinely high-difficulty concepts that need a dedicated class session.</p>
+      <div style="overflow-x:auto"><table>
+        <tr><th>Q No</th><th>Question</th><th>Chapter</th><th>Sub-Concept</th><th>Error Type</th><th class="ctr">Attempted</th><th class="ctr">Wrong</th><th class="ctr">Wrong Rate</th><th style="min-width:100px">Difficulty</th></tr>
+        <tbody id="rpt-d-body"></tbody>
+      </table></div>
+      <p id="rpt-d-empty" style="font-size:13px;color:#1B5E20;padding:14px;background:#E8F5E9;border-radius:6px;display:none">✅ No question had ≥50% wrong rate. The batch performed reasonably consistently across all questions.</p>
     </div>
     <div class="footer">Powered by BioRivet AI Diagnostic &nbsp;·&nbsp; Know More. Fear Less. &nbsp;·&nbsp; biorivet.com</div>
   </div>
@@ -584,44 +610,115 @@ function computeReport() {
   const ANSKEY = questions.map(q=>q.ans);
   const N = SA.length;
 
-  // Per-student
+  // Per-student — NEET scoring: +4 correct, -1 wrong, 0 unattempted
   const studentReports = SA.map(st => {
-    const chapWrong = {};
-    Object.keys(chapGroups).forEach(ch => { chapWrong[ch]=0; });
-    let totalWrong=0;
-    let totalCorrect=0;
+    const chapWrong = {}, chapCorrect = {}, chapUnattempted = {};
+    // Per-student sub-concept and error-type tallies
+    const subWrong = {}; // { 'Enzyme Action': 3 }
+    const errWrong = { Memory:0, Conceptual:0, Application:0, Unknown:0 };
+    Object.keys(chapGroups).forEach(ch => { chapWrong[ch]=0; chapCorrect[ch]=0; chapUnattempted[ch]=0; });
+    let totalWrong=0, totalCorrect=0, totalUnattempted=0;
     questions.forEach((q,qi) => {
       const a = st.answers[qi];
-      if(a==='') { /* unattempted, do nothing */ }
-      else if(a!==ANSKEY[qi]) { totalWrong++; chapWrong[q.chapter]++; }
-      else { totalCorrect++; }
+      if(a==='') {
+        totalUnattempted++;
+        chapUnattempted[q.chapter]++;
+      } else if(a!==ANSKEY[qi]) {
+        totalWrong++;
+        chapWrong[q.chapter]++;
+        // sub-concept tracking
+        const sub = q.sub || '—';
+        if(sub && sub!=='—') subWrong[sub] = (subWrong[sub]||0)+1;
+        // error type tracking
+        const et = q.errorType||'Unknown';
+        errWrong[et] = (errWrong[et]||0)+1;
+      } else {
+        totalCorrect++;
+        chapCorrect[q.chapter]++;
+      }
     });
-    const score = totalCorrect;
-    const ranked = Object.entries(chapWrong).sort((a,b)=>b[1]-a[1]);
-    const w1=ranked[0][0], w2=ranked.length>1?ranked[1][0]:ranked[0][0];
-    const pct = Math.round((score/questions.length)*100);
-    const priority = pct < 40 ? 'high'
-                   : pct < 60 ? 'medium' : 'low';
-    return {name:st.name, score, totalWrong, pct, chapWrong, w1, w2, priority, answers:st.answers};
+    // NEET marks: +4 per correct, -1 per wrong
+    const neetMarks = (totalCorrect * 4) - (totalWrong * 1);
+    const maxMarks  = questions.length * 4;
+    const pct = Math.round((totalCorrect / questions.length) * 100);
+    const marksPct = Math.round((neetMarks / maxMarks) * 100);
+
+    // Fix #4: rank chapters by wrong RATE (wrong/total in chapter), not raw count
+    const chapTotals = {};
+    Object.entries(chapGroups).forEach(([ch,idxArr]) => { chapTotals[ch] = idxArr.length; });
+    const rankedByRate = Object.entries(chapWrong)
+      .map(([ch,w]) => [ch, w, chapTotals[ch]>0 ? w/chapTotals[ch] : 0])
+      .sort((a,b) => b[2]-a[2]);
+    const w1 = rankedByRate[0][0];
+    const w2 = rankedByRate.length>1 ? rankedByRate[1][0] : rankedByRate[0][0];
+
+    // Fix #2: NEET-calibrated priority thresholds
+    // NEET max = questions*4. Bands: <180 marks (~25%) = high, <360 (~50%) = medium, >=360 = low
+    // Scaled to whatever question count is in the paper
+    const marksBand = neetMarks / maxMarks;
+    const priority = marksBand < 0.25 ? 'high'
+                   : marksBand < 0.50 ? 'medium' : 'low';
+
+    // Top sub-concepts wrong
+    const topSubs = Object.entries(subWrong).sort((a,b)=>b[1]-a[1]).slice(0,3);
+
+    return {
+      name: st.name,
+      score: totalCorrect,       // raw correct count
+      neetMarks,                  // NEET-style marks (+4/-1)
+      maxMarks,
+      totalWrong, totalCorrect, totalUnattempted,
+      pct, marksPct,
+      chapWrong, chapCorrect, chapUnattempted, chapTotals,
+      w1, w2,
+      priority,
+      answers: st.answers,
+      subWrong, topSubs, errWrong,
+      rankedByRate                // [[ch, wrongCount, wrongRate], ...]
+    };
   });
 
-  // Chapter-level
+  // Chapter-level stats
   const chapterStats = {};
   Object.entries(chapGroups).forEach(([ch, indices]) => {
-    let totalWrong=0;
+    let totalWrong=0, totalCorrect=0, totalUnattempted=0;
     const max = indices.length * N;
-    SA.forEach(st => { indices.forEach(qi => { if(st.answers[qi]!=='' && st.answers[qi]!==ANSKEY[qi]) totalWrong++; }); });
+    SA.forEach(st => {
+      indices.forEach(qi => {
+        const a = st.answers[qi];
+        if(a==='') totalUnattempted++;
+        else if(a!==ANSKEY[qi]) totalWrong++;
+        else totalCorrect++;
+      });
+    });
     const pct = max>0 ? totalWrong/max : 0;
     chapterStats[ch] = {
-      totalWrong, max, pct,
+      totalWrong, totalCorrect, totalUnattempted, max, pct,
       level: pct>=0.6?'critical':pct>=0.4?'needs':'strong',
       qs: indices.length===1 ? questions[indices[0]].qno
-                              : questions[indices[0]].qno+' – '+questions[indices[indices.length-1]].qno,
+                             : questions[indices[0]].qno+' – '+questions[indices[indices.length-1]].qno,
       count: indices.length,
     };
   });
 
-  // Error type breakdown
+  // Fix #5: Question-level hardness — questions most of the batch got wrong
+  const questionStats = questions.map((q,qi) => {
+    let wrong=0, attempted=0;
+    SA.forEach(st => {
+      const a = st.answers[qi];
+      if(a!=='') { attempted++; if(a!==ANSKEY[qi]) wrong++; }
+    });
+    const hardness = attempted>0 ? wrong/attempted : 0;
+    return { qno:q.qno, text:q.text, chapter:q.chapter, sub:q.sub, errorType:q.errorType,
+             wrong, attempted, hardness };
+  });
+  // Top 10 hardest questions (≥50% of those who attempted got it wrong, min 2 students)
+  const hardestQs = questionStats
+    .filter(q => q.attempted >= Math.max(2, Math.ceil(N*0.3)) && q.hardness >= 0.5)
+    .sort((a,b) => b.hardness - a.hardness)
+    .slice(0, 10);
+
+  // Error type breakdown (batch)
   let mem=0,con=0,app=0;
   SA.forEach(st => {
     questions.forEach((q,qi) => {
@@ -639,36 +736,31 @@ function computeReport() {
   const highRisk = studentReports.filter(s=>s.priority==='high').length;
   const medRisk  = studentReports.filter(s=>s.priority==='medium').length;
   const lowRisk  = studentReports.filter(s=>s.priority==='low').length;
-  const avgScore = Math.round(studentReports.reduce((a,s)=>a+s.score,0)/N);
+  // Fix #1: avg score in NEET marks
+  const avgNeetMarks = Math.round(studentReports.reduce((a,s)=>a+s.neetMarks,0)/N);
+  const avgScore = avgNeetMarks; // kept for compat
 
   return {chapterStats, studentReports, worstCh, bestCh,
-          highRisk, medRisk, lowRisk, avgScore, mem, con, app, N,
-          totalQ: questions.length, chapColors};
+          highRisk, medRisk, lowRisk, avgScore, avgNeetMarks, mem, con, app, N,
+          totalQ: questions.length, chapColors, questionStats, hardestQs};
 }
 
 // ══════════════════════════════════════════════════════════════
 // RENDER REPORT
 // ══════════════════════════════════════════════════════════════
-function generateReport() {
-  if(!QP||!SA) { alert('Please upload both question paper and student answers first.'); return; }
-  RPT = computeReport();
-  renderSummaryCards();
-  renderSecA();
-  renderSecB('name');
-  renderSecC();
-  gotoStep(3);
-}
+// renderSummaryCards defined below
 
 function renderSummaryCards() {
   const r=RPT;
+  const avgPct = Math.round((r.avgNeetMarks / (r.totalQ*4))*100);
   document.getElementById('summary-cards').innerHTML = [
-    {l:'Students Analysed',  v:r.N,           s:'total'},
-    {l:'Questions in Test',  v:r.totalQ,       s:'from question paper'},
-    {l:'High Risk Students', v:r.highRisk,     s:'need urgent help', danger:true},
-    {l:'Weakest Chapter',    v:r.worstCh,      s:'highest error rate', small:true},
+    {l:'Students Analysed',   v:r.N,                    s:'total in this batch'},
+    {l:'Avg NEET Marks',      v:r.avgNeetMarks+' / '+(r.totalQ*4), s:'batch average (+4/−1 scoring)', warn: r.avgNeetMarks < r.totalQ},
+    {l:'High Risk Students',  v:r.highRisk,             s:'need urgent intervention', danger:true},
+    {l:'Weakest Chapter',     v:r.worstCh,              s:'highest batch error rate', small:true},
   ].map(c=>`<div class="metric">
     <div class="mlabel">${c.l}</div>
-    <div class="mval" style="${c.danger?'color:#B71C1C':''}${c.small?';font-size:15px':''}">${c.v}</div>
+    <div class="mval" style="${c.danger?'color:#B71C1C':c.warn?'color:#E65100':''}${c.small?';font-size:15px':''}">${c.v}</div>
     <div class="msub">${c.s}</div>
   </div>`).join('');
 }
@@ -697,9 +789,15 @@ function renderSecA() {
 }
 
 function renderSecB(key) {
-  const data=[...RPT.studentReports];
+  // Fix #9: apply active filter
+  let data = [...RPT.studentReports];
+  const filterVal = (document.getElementById('sb-filter')||{}).value || 'all';
+  const searchVal = ((document.getElementById('sb-search')||{}).value || '').toLowerCase().trim();
+  if(filterVal !== 'all') data = data.filter(s => s.priority === filterVal);
+  if(searchVal) data = data.filter(s => s.name.toLowerCase().includes(searchVal));
+
   if(key==='name')  data.sort((a,b)=>a.name.localeCompare(b.name)*SORT_DIR);
-  else if(key==='score') data.sort((a,b)=>(a.score-b.score)*SORT_DIR);
+  else if(key==='score') data.sort((a,b)=>(a.neetMarks-b.neetMarks)*SORT_DIR);
   else if(key==='wrong') data.sort((a,b)=>(b.totalWrong-a.totalWrong)*SORT_DIR);
   else { const o={high:0,medium:1,low:2}; data.sort((a,b)=>(o[a.priority]-o[b.priority])*SORT_DIR); }
 
@@ -710,47 +808,166 @@ function renderSecB(key) {
     low:'<span class="badge b-green">🟢 Low</span>',
   };
 
-  const cols=Math.min(QP.questions.length,5);
   document.getElementById('rpt-b-header').innerHTML=
-    `<div style="display:grid;grid-template-columns:180px 80px 150px 150px 110px 22px;gap:10px">
-      <span>Student</span><span>Score</span><span>Weakest</span><span>2nd Weakest</span><span>Priority</span><span></span>
+    `<div style="display:grid;grid-template-columns:180px 110px 140px 140px 110px 22px;gap:10px">
+      <span>Student</span><span>NEET Marks</span><span>Weakest (rate)</span><span>2nd Weakest</span><span>Priority</span><span></span>
     </div>`;
 
+  const maxMarksLabel = RPT.totalQ * 4;
+  document.getElementById('rpt-b-count').textContent =
+    `Showing ${data.length} of ${RPT.studentReports.length} students`;
+
   document.getElementById('rpt-b-body').innerHTML = data.map((s,i)=>{
-    const {bg:w1bg,tc:w1tc}=RPT.chapColors[s.w1];
-    const {bg:w2bg,tc:w2tc}=RPT.chapColors[s.w2];
+    const {bg:w1bg,tc:w1tc}=RPT.chapColors[s.w1]||{bg:'#eee',tc:'#333'};
+    const {bg:w2bg,tc:w2tc}=RPT.chapColors[s.w2]||{bg:'#eee',tc:'#333'};
 
-    // action plan (generic, chapter-aware)
-    const plan = `Day 1: Review all key concepts in <strong>${s.w1}</strong> — make a one-page summary note with diagrams/flowcharts.<br>
-Day 2: Redo every wrong question from <strong>${s.w1}</strong> and <strong>${s.w2}</strong> — write out the correct reasoning for each.<br>
-Day 3: Solve 20 fresh MCQs focused on ${s.w1} under timed conditions. Target 80%+ accuracy.`;
+    // ── SMART ACTION PLAN ──────────────────────────────────────────
+    const totalQ   = QP.questions.length;
+    const attempted = s.answers.filter(a => a !== '').length;
+    const unattempted = s.totalUnattempted;
+    const accuracy = s.pct;
 
-    const ansHtml = s.answers.map((a,qi)=>{
-      const ok=a===ANSKEY[qi], blank=a==='';
-      return `<div class="ans-cell ${blank?'ans-blank':ok?'ans-ok':'ans-err'}">
-        <span class="qlbl">${QP.questions[qi].qno}</span>${a||'–'}
+    const chapRanked = s.rankedByRate.filter(([,w]) => w > 0);
+    const chapWrongRate = {};
+    chapRanked.forEach(([ch,w,r]) => { chapWrongRate[ch] = r; });
+    const top3 = chapRanked.slice(0,3).map(([ch])=>ch);
+
+    // Fix #7: dominant error type for this student
+    const dominantErr = s.errWrong.Memory >= s.errWrong.Conceptual && s.errWrong.Memory >= s.errWrong.Application
+      ? 'Memory' : s.errWrong.Conceptual >= s.errWrong.Application ? 'Conceptual' : 'Application';
+    const errAdvice = dominantErr==='Memory'
+      ? 'Most of your errors are <strong>Memory</strong> type — use flashcards and spaced repetition, not re-reading.'
+      : dominantErr==='Conceptual'
+      ? 'Most of your errors are <strong>Conceptual</strong> — re-reading won\'t help; focus on understanding mechanisms with diagrams.'
+      : 'Most of your errors are <strong>Application</strong> type — you know the theory but struggle under exam conditions. More timed MCQ practice is key.';
+
+    // Fix #6: top sub-concepts that are weak
+    const subLine = s.topSubs.length > 0
+      ? `Key sub-topics to focus on: <strong>${s.topSubs.map(([sub,w])=>`${sub} (${w} wrong)`).join(', ')}</strong>.`
+      : '';
+
+    // Fix #3: unattempted flag
+    const unattemptedLine = unattempted > totalQ * 0.15
+      ? `<br>⏱ <strong>${unattempted} questions unattempted</strong> — work on exam time management alongside content revision.`
+      : '';
+
+    let plan = '';
+    if (accuracy < 20) {
+      const diagnosisLine = unattempted > totalQ * 0.25
+        ? `<strong>Note:</strong> ${unattempted} questions unattempted — low confidence or time management crisis alongside concept gaps.`
+        : `Only ${accuracy}% accuracy across ${totalQ} questions — this is a <strong>foundational understanding gap</strong>, not a revision issue.`;
+      plan = `<span style="color:#B71C1C;font-weight:700">⚠ Critical — Rebuild from Basics</span><br>
+${diagnosisLine}${unattemptedLine}<br><br>
+${errAdvice}${subLine ? '<br>'+subLine : ''}<br><br>
+<strong>Week 1:</strong> Do NOT attempt more MCQs yet. Open NCERT for <strong>${top3[0]||s.w1}</strong> and read each section carefully. After each section, close the book and write a 5-line summary in your own words.<br>
+<strong>Week 2:</strong> Repeat for <strong>${top3[1]||s.w2}</strong>${top3[2]?` and <strong>${top3[2]}</strong>`:''}. Draw labelled diagrams from scratch — don't copy.<br>
+<strong>Week 3:</strong> Now attempt 10 MCQs per chapter. For each wrong answer, write the correct explanation in a notebook.<br>
+<strong>Week 4:</strong> Take a 50-question mock on your two weakest chapters. <strong>Milestone: 40%+ accuracy.</strong>`;
+    } else if (accuracy < 40) {
+      const spreadEvenly = chapRanked.length>1 && Math.abs(chapRanked[0][1]-chapRanked[1][1])<=3;
+      const focusLine = spreadEvenly
+        ? `Errors are spread across multiple chapters — broad conceptual weakness, not one chapter issue.`
+        : `<strong>${s.w1}</strong> has the highest wrong rate (${Math.round(chapWrongRate[s.w1]*100)}%), but all chapters need attention.`;
+      plan = `<span style="color:#E65100;font-weight:700">🔶 High Risk — Structured Revision Needed</span><br>
+${focusLine}${unattemptedLine}<br>
+${errAdvice}${subLine ? '<br>'+subLine : ''}<br><br>
+<strong>Day 1–2:</strong> NCERT for <strong>${s.w1}</strong>. Re-read, then list every concept you couldn't recall without looking.<br>
+<strong>Day 3–4:</strong> Redo all wrong questions from <strong>${s.w1}</strong> and <strong>${s.w2}</strong> — write out full reasoning for each.<br>
+<strong>Day 5:</strong> Attempt 15 fresh MCQs on <strong>${s.w1}</strong>. Wrong again = back to NCERT.<br>
+<strong>Day 6–7:</strong> Cover <strong>${top3[2]||s.w2}</strong> the same way. <strong>Milestone: NEET marks above ${Math.round(s.maxMarks*0.35)}.</strong>`;
+    } else if (accuracy < 60) {
+      const highRateChap = chapRanked.find(([ch,,r]) => r >= 0.5);
+      const subConceptTip = highRateChap
+        ? `<strong>${highRateChap[0]}</strong> has ${Math.round(highRateChap[2]*100)}% wrong rate — this chapter needs focused work.`
+        : `Errors are scattered — you know concepts broadly but miss details under exam conditions.`;
+      plan = `<span style="color:#F9A825;font-weight:700">🟡 Medium Risk — Targeted Gap Closing</span><br>
+${subConceptTip}${unattemptedLine}<br>
+${errAdvice}${subLine ? '<br>'+subLine : ''}<br><br>
+<strong>Day 1:</strong> List every wrong question from <strong>${s.w1}</strong>. Group by sub-topic. Find the 2–3 recurring gaps.<br>
+<strong>Day 2:</strong> Re-read only those sub-topics in NCERT — not the full chapter. Make a 10-point fact sheet per sub-topic.<br>
+<strong>Day 3:</strong> 20 fresh MCQs on <strong>${s.w1}</strong> and <strong>${s.w2}</strong> timed. <strong>Target: NEET marks above ${Math.round(s.maxMarks*0.55)}.</strong>`;
+    } else {
+      const mainGap = chapRanked[0];
+      const isMinorGap = mainGap && mainGap[1] <= 5;
+      const fineTuneLine = isMinorGap
+        ? `Only ${s.totalWrong} wrong — minor gaps concentrated in <strong>${mainGap[0]}</strong> (${mainGap[1]} wrong).`
+        : `Strong overall at ${accuracy}% accuracy. Targeted sub-topic work will push NEET marks higher.`;
+      plan = `<span style="color:#2E7D32;font-weight:700">🟢 Low Risk — Polish & Push Higher</span><br>
+${fineTuneLine}${unattemptedLine}<br>
+${errAdvice}${subLine ? '<br>'+subLine : ''}<br><br>
+<strong>Day 1:</strong> Review only the specific questions wrong in <strong>${s.w1}</strong>${chapRanked[1]?` and <strong>${chapRanked[1][0]}</strong>`:''} — identify the exact concept tested in each.<br>
+<strong>Day 2:</strong> Write a one-line "rule" for each wrong answer. Build a personal quick-reference sheet.<br>
+<strong>Day 3:</strong> 20 fresh MCQs on weak sub-topics timed. <strong>Target: 85%+ accuracy / NEET marks above ${Math.round(s.maxMarks*0.75)}.</strong>`;
+    }
+    // ── END SMART ACTION PLAN ──────────────────────────────────
+
+    // Fix #8: Answer grid grouped by chapter
+    const ansHtml = Object.entries(QP.chapGroups).map(([ch, indices]) => {
+      const {bg,tc} = RPT.chapColors[ch]||{bg:'#eee',tc:'#333'};
+      const cells = indices.map(qi => {
+        const a = s.answers[qi], ok=a===ANSKEY[qi], blank=a==='';
+        return `<div class="ans-cell ${blank?'ans-blank':ok?'ans-ok':'ans-err'}" title="${QP.questions[qi].qno}: ${QP.questions[qi].text||''}">
+          <span class="qlbl">${QP.questions[qi].qno}</span>${a||'–'}
+        </div>`;
+      }).join('');
+      const chWrong = s.chapWrong[ch]||0;
+      const chRate  = s.chapTotals[ch]>0 ? Math.round((chWrong/s.chapTotals[ch])*100) : 0;
+      return `<div style="margin-bottom:10px">
+        <div style="font-size:11px;font-weight:700;color:${tc};background:${bg};padding:3px 8px;border-radius:4px;display:inline-block;margin-bottom:5px">${ch} — ${chWrong} wrong / ${s.chapTotals[ch]} &nbsp;(${chRate}% error rate)</div>
+        <div class="ans-grid">${cells}</div>
       </div>`;
     }).join('');
 
+    // Chapter breakdown badges
     const chapBreakdown = Object.entries(s.chapWrong)
-      .map(([ch,w])=>`<span style="font-size:11px;background:#f0f4fb;border:1px solid #dde4ef;border-radius:4px;padding:2px 8px;color:#555">${ch}: ${w}❌</span>`)
-      .join('');
+      .sort((a,b)=>b[1]-a[1])
+      .map(([ch,w])=>{
+        const rate = s.chapTotals[ch]>0?Math.round((w/s.chapTotals[ch])*100):0;
+        const col = rate>=60?'#B71C1C':rate>=40?'#E65100':'#1B5E20';
+        return `<span style="font-size:11px;background:#f0f4fb;border:1px solid #dde4ef;border-radius:4px;padding:2px 8px;color:${col}">${ch}: ${w}❌ (${rate}%)</span>`;
+      }).join('');
+
+    // NEET marks color
+    const marksColor = s.priority==='high'?'#B71C1C':s.priority==='medium'?'#E65100':'#1B5E20';
+    const neetDisplay = `<span style="color:${marksColor};font-weight:700">${s.neetMarks}</span><span style="font-size:10px;color:#999">/${s.maxMarks}</span>`;
 
     return `<div class="srow">
-      <div class="shdr" style="grid-template-columns:180px 80px 150px 150px 110px 22px" onclick="toggleS(${i})">
+      <div class="shdr" style="grid-template-columns:180px 110px 140px 140px 110px 22px" onclick="toggleS(${i})">
         <span style="font-weight:700">${s.name}</span>
-        <span style="font-weight:700;color:#1F3864">${s.score}/${QP.questions.length}</span>
+        <span>${neetDisplay}</span>
         <span class="ch-badge" style="background:${w1bg};color:${w1tc}">${s.w1}</span>
         <span class="ch-badge" style="background:${w2bg};color:${w2tc}">${s.w2}</span>
         ${prB[s.priority]}
         <span id="sarr-${i}" style="color:#aaa;font-size:11px">▶</span>
       </div>
       <div class="sdetail" id="sdet-${i}">
-        <p style="font-size:12px;font-weight:700;color:#1F3864;margin-bottom:8px">3-Day Action Plan</p>
-        <p style="font-size:12px;color:#444;line-height:1.8;margin-bottom:12px">${plan}</p>
-        <p style="font-size:11px;font-weight:700;color:#666;margin-bottom:6px">Answer grid &nbsp;(🟢 correct · 🔴 wrong · ⚪ unattempted)</p>
-        <div class="ans-grid">${ansHtml}</div>
-        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">${chapBreakdown}</div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px">
+          <div style="background:#f0f4fb;border-radius:6px;padding:10px;text-align:center">
+            <div style="font-size:10px;color:#666;margin-bottom:2px">NEET Marks</div>
+            <div style="font-size:20px;font-weight:700;color:${marksColor}">${s.neetMarks}</div>
+            <div style="font-size:10px;color:#999">out of ${s.maxMarks}</div>
+          </div>
+          <div style="background:#f0f4fb;border-radius:6px;padding:10px;text-align:center">
+            <div style="font-size:10px;color:#666;margin-bottom:2px">Correct</div>
+            <div style="font-size:20px;font-weight:700;color:#1B5E20">${s.totalCorrect}</div>
+            <div style="font-size:10px;color:#999">+${s.totalCorrect*4} marks</div>
+          </div>
+          <div style="background:#f0f4fb;border-radius:6px;padding:10px;text-align:center">
+            <div style="font-size:10px;color:#666;margin-bottom:2px">Wrong</div>
+            <div style="font-size:20px;font-weight:700;color:#B71C1C">${s.totalWrong}</div>
+            <div style="font-size:10px;color:#999">−${s.totalWrong} marks</div>
+          </div>
+          <div style="background:#f0f4fb;border-radius:6px;padding:10px;text-align:center">
+            <div style="font-size:10px;color:#666;margin-bottom:2px">Unattempted</div>
+            <div style="font-size:20px;font-weight:700;color:#555">${s.totalUnattempted}</div>
+            <div style="font-size:10px;color:#999">0 marks</div>
+          </div>
+        </div>
+        <p style="font-size:12px;font-weight:700;color:#1F3864;margin-bottom:8px">Personalised Action Plan</p>
+        <p style="font-size:12px;color:#444;line-height:1.9;margin-bottom:12px">${plan}</p>
+        <p style="font-size:11px;font-weight:700;color:#666;margin-bottom:6px">Answer grid by chapter &nbsp;(🟢 correct · 🔴 wrong · ⚪ unattempted — hover for question text)</p>
+        ${ansHtml}
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">${chapBreakdown}</div>
       </div>
     </div>`;
   }).join('');
@@ -766,16 +983,44 @@ function sortStudents(key) {
   renderSecB(key);
 }
 
+function generateReport() {
+  if(!QP||!SA) { alert('Please upload both question paper and student answers first.'); return; }
+  RPT = computeReport();
+  renderSummaryCards();
+  renderSecA();
+  renderSecB('name');
+  renderSecC();
+  renderSecD();
+  gotoStep(3);
+}
+
+// ══════════════════════════════════════════════════════════════
+// REPORT TABS
+// ══════════════════════════════════════════════════════════════
+function showRTab(t) {
+  ['a','b','c','d'].forEach(x => {
+    document.getElementById('rpt-'+x).style.display=x===t?'':'none';
+    document.getElementById('rtab-'+x).className='rtab'+(x===t?' active':'');
+  });
+}
+
+// ══════════════════════════════════════════════════════════════
+// SECTION C — BATCH INSIGHTS (NEET-aware)
+// ══════════════════════════════════════════════════════════════
 function renderSecC() {
   const r=RPT;
   const total=r.N*r.totalQ;
   const topErr=r.mem>=r.con&&r.mem>=r.app?'Memory':r.con>=r.app?'Conceptual':'Application';
+  const maxBatchMarks = r.totalQ * 4;
+  const avgPct = Math.round((r.avgNeetMarks/maxBatchMarks)*100);
+  // NEET-calibrated risk label text
+  const riskNote = `High risk = NEET marks < ${Math.round(maxBatchMarks*0.25)} · Medium = ${Math.round(maxBatchMarks*0.25)}–${Math.round(maxBatchMarks*0.50)} · Low = above ${Math.round(maxBatchMarks*0.50)}`;
   const insights=[
     {c:'#B71C1C',bg:'#FFEBEE', t:`Biggest gap: <strong>${r.worstCh}</strong> has the highest error rate across the batch. Schedule one dedicated 45-min revision class on this chapter before the next test cycle.`},
-    {c:'#1B5E20',bg:'#E8F5E9', t:`Strongest area: <strong>${r.bestCh}</strong> shows the best accuracy. Students have retained this chapter well — you can reduce revision time here.`},
-    {c:'#E65100',bg:'#FFF8E1', t:`Risk breakdown: <strong>${r.highRisk} High Risk</strong> (60%+ wrong) · <strong>${r.medRisk} Medium Risk</strong> (40–60%) · <strong>${r.lowRisk} Low Risk</strong> (<40% wrong). High-risk students need immediate targeted sessions.`},
-    {c:'#283593',bg:'#E8EAF6', t:`Dominant error type: <strong>${topErr}</strong>. Memory: ${r.mem} errors · Conceptual: ${r.con} errors · Application: ${r.app} errors. ${topErr==='Conceptual'?'Focus on understanding mechanisms, not just rote facts.':topErr==='Application'?'Students understand concepts but struggle to apply them — practice more MCQs.':'Spaced repetition and flashcard drills will help retention.'}`},
-    {c:'#1F3864',bg:'#E3F2FD', t:`Recommended batch action: Group all high-risk students for a focused session on <strong>${r.worstCh}</strong>. Re-test those specific questions within 7 days to track improvement.`},
+    {c:'#1B5E20',bg:'#E8F5E9', t:`Strongest area: <strong>${r.bestCh}</strong> shows the best batch accuracy. Students have retained this chapter well — reduce revision time here.`},
+    {c:'#E65100',bg:'#FFF8E1', t:`NEET marks summary: Batch average is <strong>${r.avgNeetMarks} / ${maxBatchMarks}</strong> (${avgPct}%). Risk split — <strong>${r.highRisk} High</strong> · <strong>${r.medRisk} Medium</strong> · <strong>${r.lowRisk} Low</strong>. <span style="font-size:11px;color:#888">${riskNote}</span>`},
+    {c:'#283593',bg:'#E8EAF6', t:`Dominant error type: <strong>${topErr}</strong>. Memory: ${r.mem} · Conceptual: ${r.con} · Application: ${r.app}. ${topErr==='Conceptual'?'Focus on understanding mechanisms, not rote facts.':topErr==='Application'?'Students understand concepts but struggle to apply — more timed MCQ practice.':'Spaced repetition and active recall drills will help.'}`},
+    {c:'#1F3864',bg:'#E3F2FD', t:`Recommended batch action: Group all high-risk students for a focused session on <strong>${r.worstCh}</strong>. ${r.hardestQs.length>0?`Also revisit the ${r.hardestQs.length} hardest question(s) in Section D — these had >50% wrong rate across the batch.`:''} Re-test within 7 days to measure improvement.`},
   ];
   document.getElementById('rpt-c-body').innerHTML=insights.map(ins=>
     `<div class="insight" style="background:${ins.bg}">
@@ -785,12 +1030,34 @@ function renderSecC() {
 }
 
 // ══════════════════════════════════════════════════════════════
-// REPORT TABS
+// SECTION D — HARDEST QUESTIONS (#5)
 // ══════════════════════════════════════════════════════════════
-function showRTab(t) {
-  ['a','b','c'].forEach(x => {
-    document.getElementById('rpt-'+x).style.display=x===t?'':'none';
-    document.getElementById('rtab-'+x).className='rtab'+(x===t?' active':'');
+function renderSecD() {
+  const tbody = document.getElementById('rpt-d-body');
+  const empty = document.getElementById('rpt-d-empty');
+  tbody.innerHTML='';
+  if(RPT.hardestQs.length===0) {
+    empty.style.display='';
+    return;
+  }
+  empty.style.display='none';
+  RPT.hardestQs.forEach(q => {
+    const pct=Math.round(q.hardness*100);
+    const barC = pct>=80?'#B71C1C':pct>=65?'#E65100':'#FB8C00';
+    const {bg,tc}=RPT.chapColors[q.chapter]||{bg:'#eee',tc:'#333'};
+    const ec = q.errorType==='Memory'?'#FFF2CC':q.errorType==='Conceptual'?'#FCE4D6':'#E2EFDA';
+    const et = q.errorType==='Memory'?'#7B6000':q.errorType==='Conceptual'?'#7B2D00':'#1E4620';
+    tbody.innerHTML+=`<tr>
+      <td style="font-weight:700;color:#2E5EA8">${q.qno}</td>
+      <td style="max-width:280px;font-size:11px">${q.text||'—'}</td>
+      <td><span class="ch-badge" style="background:${bg};color:${tc}">${q.chapter}</span></td>
+      <td style="font-size:11px;color:#555">${q.sub||'—'}</td>
+      <td><span style="background:${ec};color:${et};padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">${q.errorType||'—'}</span></td>
+      <td class="ctr">${q.attempted}</td>
+      <td class="ctr" style="font-weight:700;color:#B71C1C">${q.wrong}</td>
+      <td class="ctr" style="font-weight:700;color:${barC}">${pct}%</td>
+      <td><div class="pbar"><div class="pfill" style="width:${pct}%;background:${barC}"></div></div></td>
+    </tr>`;
   });
 }
 
@@ -802,13 +1069,14 @@ function exportExcel() {
   const wb=XLSX.utils.book_new();
   const ANSKEY=QP.questions.map(q=>q.ans);
 
-  // Sheet 1: Student Data
-  const sd=[['Student Name',...QP.questions.map(q=>q.qno),'Total Wrong','Score','Score %','Priority']];
+  // Sheet 1: Student Data with NEET marks
+  const sd=[['Student Name',...QP.questions.map(q=>q.qno),'Correct','Wrong','Unattempted','NEET Marks','Max Marks','Accuracy %','Priority']];
   RPT.studentReports.forEach(s => {
-    sd.push([s.name,...s.answers,s.totalWrong,s.score,s.pct+'%',s.priority.toUpperCase()]);
+    sd.push([s.name,...s.answers,s.totalCorrect,s.totalWrong,s.totalUnattempted,
+             s.neetMarks,s.maxMarks,s.pct+'%',s.priority.toUpperCase()]);
   });
   const ws1=XLSX.utils.aoa_to_sheet(sd);
-  ws1['!cols']=[{wch:22},...Array(QP.questions.length).fill({wch:5}),{wch:12},{wch:8},{wch:10},{wch:10}];
+  ws1['!cols']=[{wch:22},...Array(QP.questions.length).fill({wch:5}),{wch:10},{wch:8},{wch:12},{wch:12},{wch:10},{wch:12},{wch:10}];
   XLSX.utils.book_append_sheet(wb,ws1,'Student Data');
 
   // Sheet 2: Chapter Analysis
@@ -821,23 +1089,47 @@ function exportExcel() {
   ws2['!cols']=[{wch:20},{wch:16},{wch:14},{wch:14},{wch:14},{wch:18}];
   XLSX.utils.book_append_sheet(wb,ws2,'Chapter Analysis');
 
-  // Sheet 3: Individual Diagnosis
-  const id=[['Student','Score','Total Wrong','Score %','Weakest Chapter','2nd Weakest','Priority',
-             ...Object.keys(QP.chapGroups).map(c=>c+' Wrong')]];
+  // Sheet 3: Individual Diagnosis with action plan text (#10)
+  const chapKeys = Object.keys(QP.chapGroups);
+  const id=[['Student','NEET Marks','Max Marks','Correct','Wrong','Unattempted','Accuracy %',
+             'Weakest Chapter (rate)','2nd Weakest','Priority','Error Profile (Mem/Con/App)',
+             ...chapKeys.map(c=>c+' Wrong'),
+             ...chapKeys.map(c=>c+' Wrong Rate %'),
+             'Top Weak Sub-Concepts','Action Plan Summary']];
   RPT.studentReports.forEach(s => {
-    id.push([s.name,s.score,s.totalWrong,s.pct+'%',s.w1,s.w2,s.priority.toUpperCase(),
-             ...Object.values(s.chapWrong)]);
+    // Strip HTML from plan for Excel
+    const planDiv=document.createElement('div');
+    planDiv.innerHTML=s._planText||'';
+    const planText=planDiv.textContent||planDiv.innerText||'';
+    const errProfile=`Mem:${s.errWrong.Memory||0} Con:${s.errWrong.Conceptual||0} App:${s.errWrong.Application||0}`;
+    const topSubsText=s.topSubs.map(([sub,w])=>`${sub}(${w})`).join(', ');
+    id.push([s.name, s.neetMarks, s.maxMarks, s.totalCorrect, s.totalWrong, s.totalUnattempted,
+             s.pct+'%', s.w1, s.w2, s.priority.toUpperCase(), errProfile,
+             ...chapKeys.map(c=>s.chapWrong[c]||0),
+             ...chapKeys.map(c=>s.chapTotals[c]>0?Math.round(((s.chapWrong[c]||0)/s.chapTotals[c])*100)+'%':'—'),
+             topSubsText, planText]);
   });
   const ws3=XLSX.utils.aoa_to_sheet(id);
-  ws3['!cols']=[{wch:22},{wch:8},{wch:12},{wch:10},{wch:20},{wch:20},{wch:10},...Array(Object.keys(QP.chapGroups).length).fill({wch:14})];
+  ws3['!cols']=[{wch:22},{wch:12},{wch:10},{wch:10},{wch:8},{wch:12},{wch:10},{wch:22},{wch:22},{wch:10},{wch:20},
+               ...Array(chapKeys.length*2).fill({wch:14}),{wch:30},{wch:60}];
   XLSX.utils.book_append_sheet(wb,ws3,'Individual Diagnosis');
 
-  // Sheet 4: Question Bank
+  // Sheet 4: Hardest Questions (#5)
+  const hq=[['Q No','Question','Chapter','Sub-Concept','Error Type','Students Attempted','Wrong','Wrong Rate %']];
+  RPT.hardestQs.forEach(q=>{
+    hq.push([q.qno,q.text,q.chapter,q.sub||'—',q.errorType||'—',q.attempted,q.wrong,Math.round(q.hardness*100)+'%']);
+  });
+  if(RPT.hardestQs.length===0) hq.push(['No questions with ≥50% wrong rate found.']);
+  const ws4=XLSX.utils.aoa_to_sheet(hq);
+  ws4['!cols']=[{wch:6},{wch:60},{wch:18},{wch:28},{wch:14},{wch:18},{wch:8},{wch:12}];
+  XLSX.utils.book_append_sheet(wb,ws4,'Hardest Questions');
+
+  // Sheet 5: Question Bank
   const qb=[['Q No','Question','Chapter','Sub-Concept','Error Type','Answer Key']];
   QP.questions.forEach(q => { qb.push([q.qno,q.text,q.chapter,q.sub,q.errorType,q.ans]); });
-  const ws4=XLSX.utils.aoa_to_sheet(qb);
-  ws4['!cols']=[{wch:6},{wch:65},{wch:18},{wch:28},{wch:14},{wch:10}];
-  XLSX.utils.book_append_sheet(wb,ws4,'Question Bank');
+  const ws5=XLSX.utils.aoa_to_sheet(qb);
+  ws5['!cols']=[{wch:6},{wch:65},{wch:18},{wch:28},{wch:14},{wch:10}];
+  XLSX.utils.book_append_sheet(wb,ws5,'Question Bank');
 
   XLSX.writeFile(wb,'BioRivet_Diagnostic_Report.xlsx');
 }
@@ -880,17 +1172,26 @@ function loadSampleStudents() {
     'Siddharth Joshi','Kavya Rao','Mohit Tiwari','Neha Desai','Arun Pillai',
     'Shreya Mishra','Vikram Chauhan','Ananya Das','Rohit Yadav','Meera Nambiar'];
   const opts=['A','B','C','D'];
-  let s=42;
+  // Fix #11: seed from current time so each demo load gives different results
+  let s = Date.now() % 233280;
   const rand=()=>{ s=(s*9301+49297)%233280; return s/233280; };
-  const ANSKEY=QP.questions.map(q=>q.ans);
-  SA=names.map(name=>({
-    name,
-    answers:QP.questions.map(q=>{
-      if(rand()<0.42){const w=opts.filter(o=>o!==q.ans);return w[Math.floor(rand()*3)];}
-      return q.ans;
-    })
-  }));
-  showOk('sa', SA.length+' sample students loaded (demo data).');
+  // Vary error rates per student so we get a realistic spread across priority tiers
+  SA=names.map((name, ni)=>{
+    // Students 0-4: high error rate (~60%), 5-12: medium (~40%), 13-19: low (~20%)
+    const errRate = ni < 5 ? 0.55 + rand()*0.2
+                  : ni < 13 ? 0.30 + rand()*0.2
+                  : 0.10 + rand()*0.15;
+    return {
+      name,
+      answers: QP.questions.map(q=>{
+        if(rand() < errRate){ const w=opts.filter(o=>o!==q.ans); return w[Math.floor(rand()*3)]; }
+        // Occasionally leave blank (unattempted) for realism
+        if(rand() < 0.04) return '';
+        return q.ans;
+      })
+    };
+  });
+  showOk('sa', SA.length+' sample students loaded (varied difficulty spread for demo).');
   renderSAPreview();
 }
 
