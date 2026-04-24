@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>BioRivet – NEET Diagnostic Tool</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:Arial,sans-serif;background:#f0f4f8;color:#1a1a2e;font-size:14px}
@@ -242,6 +243,8 @@ input[type=file]{display:none}
     <div class="rtab" id="rtab-c" onclick="showRTab('c')">Section C · Batch Insights</div>
     <div class="rtab" id="rtab-d" onclick="showRTab('d')">Section D · Hardest Questions</div>
     <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn" style="background:linear-gradient(135deg,#1B5E20,#43A047);color:white;border:none" onclick="genBatchPDF()">📄 Batch Summary PDF</button>
+      <button class="btn" style="background:linear-gradient(135deg,#B71C1C,#E53935);color:white;border:none" onclick="genAllStudentPDFs()">📦 All Student PDFs</button>
       <button class="btn btn-green" onclick="exportExcel()">⬇ Export Full Report (.xlsx)</button>
       <button class="btn btn-secondary" onclick="resetTool()">↩ New Analysis</button>
     </div>
@@ -379,57 +382,92 @@ function parseQP(rows, fname) {
   hideMsg('qp');
   if(rows.length < 2) { showErr('qp','File has fewer than 2 rows.'); return; }
 
-  // Find header row (first row that has "answer" in one of its cells)
+  // Find header row — look for a row that has at least 2 recognisable column keywords
+  // This handles files with title rows, merged cells, or blank rows above the header
+  const knownHeaders = ['q no','qno','question','answer','chapter','topic','sub','error','key','ans','no','#','text','description'];
   let hRow = 0;
-  for(let i=0;i<Math.min(rows.length,5);i++) {
-    if(rows[i].some(c => String(c).toLowerCase().includes('answer'))) { hRow=i; break; }
+  for(let i=0;i<Math.min(rows.length,8);i++) {
+    const rowLower = rows[i].map(c => String(c).trim().toLowerCase());
+    const hits = rowLower.filter(c => knownHeaders.some(k => c.includes(k))).length;
+    if(hits >= 2) { hRow=i; break; }
   }
   const header = rows[hRow].map(c => String(c).trim().toLowerCase());
 
-  // Map columns
+  // Map columns — case-insensitive partial match for robustness
   const col = name => {
-    const aliases = { qno:['q no','qno','q_no','question no','question number','no','#'],
-                      text:['question','question text','text','description'],
-                      chapter:['chapter','topic','subject'],
-                      sub:['sub-concept','sub concept','subconcept','subtopic'],
-                      errtype:['error type','errortype','error_type','type'],
-                      ans:['answer','correct answer','key','ans'] };
+    const aliases = {
+      qno:     ['q no','qno','q_no','question no','question number','no','#','sl'],
+      text:    ['question','question text','text','description','q text','stem'],
+      chapter: ['chapter','topic','subject','unit'],
+      sub:     ['sub-concept','sub concept','subconcept','subtopic','sub topic','concept'],
+      errtype: ['error type','errortype','error_type','error','type','mistake'],
+      ans:     ['answer','correct answer','answer key','key','ans','correct','solution']
+    };
     const list = aliases[name] || [name];
+    // Exact match first
     for(const a of list) { const i=header.indexOf(a); if(i>=0) return i; }
+    // Partial match fallback
+    for(const a of list) { const i=header.findIndex(h=>h.includes(a)); if(i>=0) return i; }
     return -1;
   };
 
   const cQno=col('qno'), cText=col('text'), cChap=col('chapter');
   const cSub=col('sub'), cErr=col('errtype'), cAns=col('ans');
 
-  if(cText<0 && cAns<0) { showErr('qp','Could not find Question text or Answer column. Need at least one.'); return; }
+  // Need at least one of: question text OR answer column
+  if(cText<0 && cAns<0) {
+    showErr('qp',
+      'Could not find Question or Answer columns. Headers detected: [' + header.filter(Boolean).join(', ') + ']. ' +
+      'Make sure your file has columns named Question and Answer (or similar).'
+    );
+    return;
+  }
 
   const questions = [];
   let needsAutoTag = false;
 
   for(let r=hRow+1; r<rows.length; r++) {
     const row = rows[r];
-    const text  = cText>=0 ? String(row[cText]||'').trim() : '';
-    let ans = cAns>=0 ? String(row[cAns]||'').trim().toUpperCase() : '';
-    let chap  = cChap>=0 ? String(row[cChap]||'').trim() : '';
-    const sub   = cSub>=0  ? String(row[cSub]||'').trim() : '';
-    let err   = cErr>=0  ? String(row[cErr]||'').trim() : '';
+    const text = cText>=0 ? String(row[cText]||'').trim() : '';
+    let ans    = cAns>=0  ? String(row[cAns]||'').trim().toUpperCase() : '';
+    let chap   = cChap>=0 ? String(row[cChap]||'').trim() : '';
+    const sub  = cSub>=0  ? String(row[cSub]||'').trim() : '';
+    let err    = cErr>=0  ? String(row[cErr]||'').trim() : '';
 
-    if(!ans && !text) continue; // Skip completely empty rows
+    // Skip rows with no useful data at all
+    if(!ans && !text && !chap) continue;
 
-    const qno  = cQno>=0  ? String(row[cQno]||'').trim()  : 'Q'+(questions.length+1);
+    const qno = cQno>=0 ? String(row[cQno]||'').trim() : 'Q'+(questions.length+1);
 
-    if(!ans || !chap || !err || !['A','B','C','D'].includes(ans)) {
-        if(text) needsAutoTag = true;
-        ans = ans || '?';
-        chap = chap || 'Unknown';
-        err = err || 'Unknown';
+    // Only flag needsAutoTag for fields that actually exist in the file but are blank on this row
+    // Don't penalise files that simply don't have those columns
+    const ansValid   = ['A','B','C','D'].includes(ans);
+    const chapMissing = cChap>=0 && !chap;   // column exists but cell is blank
+    const errMissing  = cErr>=0  && !err;    // column exists but cell is blank
+    const ansMissing  = cAns>=0  && !ansValid; // column exists but cell is blank/invalid
+
+    if(chapMissing || errMissing || ansMissing) {
+      if(text) needsAutoTag = true;
     }
 
-    questions.push({qno, text, chapter:chap, sub, errorType:err, ans, needsTagging: (!ans || ans==='?' || chap==='Unknown' || err==='Unknown')});
+    // Set fallbacks without overwriting valid data
+    if(!ansValid) ans = ans || '?';
+    if(!chap)     chap = 'Unknown';
+    if(!err)      err  = cErr>=0 ? 'Unknown' : 'Memory'; // default Memory if column not in file
+
+    questions.push({
+      qno, text, chapter:chap, sub, errorType:err, ans,
+      needsTagging: (!ansValid || chapMissing || errMissing)
+    });
   }
 
-  if(questions.length===0) { showErr('qp','No valid questions found.'); return; }
+  if(questions.length===0) {
+    showErr('qp',
+      'No valid questions found. Check that data starts on the row after the header. ' +
+      'Header detected on row '+(hRow+1)+': ['+header.filter(Boolean).slice(0,6).join(', ')+']'
+    );
+    return;
+  }
 
   QP = {questions, chapGroups:{}, chapColors:{}};
   buildChapGroups();
@@ -768,7 +806,9 @@ function renderSummaryCards() {
 function renderSecA() {
   const tbody = document.getElementById('rpt-a-body');
   tbody.innerHTML='';
-  Object.entries(RPT.chapterStats).forEach(([ch,s]) => {
+  // Fix 8: sort chapters by error rate descending so worst chapter is always first
+  const sortedChapters = Object.entries(RPT.chapterStats).sort((a,b) => b[1].pct - a[1].pct);
+  sortedChapters.forEach(([ch,s]) => {
     const pct=Math.round(s.pct*100);
     const {bg,tc}=RPT.chapColors[ch];
     let bCls, bColor, barC;
@@ -809,8 +849,8 @@ function renderSecB(key) {
   };
 
   document.getElementById('rpt-b-header').innerHTML=
-    `<div style="display:grid;grid-template-columns:180px 110px 140px 140px 110px 22px;gap:10px">
-      <span>Student</span><span>NEET Marks</span><span>Weakest (rate)</span><span>2nd Weakest</span><span>Priority</span><span></span>
+    `<div style="display:grid;grid-template-columns:180px 110px 140px 140px 110px 80px 22px;gap:10px">
+      <span>Student</span><span>NEET Marks</span><span>Weakest (rate)</span><span>2nd Weakest</span><span>Priority</span><span>PDF</span><span></span>
     </div>`;
 
   const maxMarksLabel = RPT.totalQ * 4;
@@ -832,74 +872,144 @@ function renderSecB(key) {
     chapRanked.forEach(([ch,w,r]) => { chapWrongRate[ch] = r; });
     const top3 = chapRanked.slice(0,3).map(([ch])=>ch);
 
-    // Fix #7: dominant error type for this student
+    // Smart chapter display — never show "Unknown" in plan text; fall back to sub-concept names
+    const resolveChap = (ch) => {
+      if(!ch || ch==='Unknown') {
+        if(s.topSubs && s.topSubs.length > 0) return s.topSubs[0][0];
+        return 'your weakest topic';
+      }
+      return ch;
+    };
+    const disp_w1 = resolveChap(s.w1);
+    const disp_w2 = (() => {
+      const r2 = resolveChap(s.w2);
+      if(r2 !== disp_w1) return r2;
+      return (s.topSubs && s.topSubs[1]) ? s.topSubs[1][0] : r2;
+    })();
+    const disp_top = top3.map(resolveChap);
+    const disp_highRate = chapRanked.find(([,w]) => w > 0)
+      ? { ch: resolveChap(chapRanked.find(([,w,r]) => r >= 0.5)?.[0] || chapRanked[0][0]),
+          r: chapRanked.find(([,w,r]) => r >= 0.5)?.[2] || chapRanked[0][2] }
+      : null;
+
+    // Fix 7: unattempted flag — if very high, pivot plan advice
+    const unattemptedPct = unattempted / totalQ;
+    const unattemptedLine = unattempted > totalQ * 0.15
+      ? `<br>⏱ <strong>${unattempted} questions unattempted (${Math.round(unattemptedPct*100)}%)</strong> — work on exam time management alongside content revision.`
+      : '';
+    const examStrategyNote = unattemptedPct >= 0.30
+      ? `<br><br>⚠ <strong>Primary issue: Exam pacing.</strong> ${unattempted} out of ${totalQ} questions were left unattempted — that alone costs ${unattempted*4} potential marks. Before focusing on content revision, practise finishing full papers within time. Set a rule: attempt every question even if unsure — a guess has a 25% chance of +4, while blank is always 0.`
+      : '';
+
+    // ── Fix 4+5: Error advice names specific sub-concepts ──────────
     const dominantErr = s.errWrong.Memory >= s.errWrong.Conceptual && s.errWrong.Memory >= s.errWrong.Application
       ? 'Memory' : s.errWrong.Conceptual >= s.errWrong.Application ? 'Conceptual' : 'Application';
+
+    // Sub-concepts for inline use in Day instructions (Fix 5)
+    const sub1 = s.topSubs[0] ? s.topSubs[0][0] : null;
+    const sub2 = s.topSubs[1] ? s.topSubs[1][0] : null;
+    const sub3 = s.topSubs[2] ? s.topSubs[2][0] : null;
+    const subCount = s.topSubs.length;
+
+    // Fix 4: error advice names the actual sub-concepts where errors happened
+    const subErrTarget = sub1 && sub2 ? `<strong>${sub1}</strong> and <strong>${sub2}</strong>`
+                       : sub1 ? `<strong>${sub1}</strong>` : `<strong>${disp_w1}</strong>`;
     const errAdvice = dominantErr==='Memory'
-      ? 'Most of your errors are <strong>Memory</strong> type — use flashcards and spaced repetition, not re-reading.'
+      ? `Most of your errors are <strong>Memory</strong> type — make one flashcard per concept for ${subErrTarget} specifically. Use spaced repetition, not re-reading.`
       : dominantErr==='Conceptual'
-      ? 'Most of your errors are <strong>Conceptual</strong> — re-reading won\'t help; focus on understanding mechanisms with diagrams.'
-      : 'Most of your errors are <strong>Application</strong> type — you know the theory but struggle under exam conditions. More timed MCQ practice is key.';
+      ? `Most of your errors are <strong>Conceptual</strong> — re-reading won't help. Draw mechanism diagrams for ${subErrTarget} from scratch until you can reproduce them without looking.`
+      : `Most of your errors are <strong>Application</strong> type — you know the theory in ${subErrTarget} but miss it under exam pressure. Timed MCQ drills on these sub-topics specifically.`;
 
-    // Fix #6: top sub-concepts that are weak
-    const subLine = s.topSubs.length > 0
-      ? `Key sub-topics to focus on: <strong>${s.topSubs.map(([sub,w])=>`${sub} (${w} wrong)`).join(', ')}</strong>.`
-      : '';
+    // Fix 2: timeline label scales to question count
+    // ≤45Q → 3-day, 46–90Q → 7-day, 91+ → 2-week
+    const isShort  = totalQ <= 45;
+    const isMedium = totalQ > 45 && totalQ <= 90;
+    const isLong   = totalQ > 90;
 
-    // Fix #3: unattempted flag
-    const unattemptedLine = unattempted > totalQ * 0.15
-      ? `<br>⏱ <strong>${unattempted} questions unattempted</strong> — work on exam time management alongside content revision.`
-      : '';
+    // Fix 2: helper — returns the right time label per slot
+    const T = (short, med, lng) => isShort ? short : isMedium ? med : lng;
 
+    // Fix 5: sub-concept inline strings for Day instructions
+    // Returns a focused sub-topic instruction line based on available data
+    const subFocusLine = (chapName) => {
+      if(subCount === 0) return '';
+      // Find sub-concepts that belong to this chapter
+      const chapIdxs = QP.chapGroups[chapName] || [];
+      const chapSubWrong = {};
+      chapIdxs.forEach(qi => {
+        const a = s.answers[qi];
+        if(a !== '' && a !== QP.questions[qi].ans) {
+          const sub = QP.questions[qi].sub || '';
+          if(sub && sub !== '—') chapSubWrong[sub] = (chapSubWrong[sub]||0)+1;
+        }
+      });
+      const chapTopSubs = Object.entries(chapSubWrong).sort((a,b)=>b[1]-a[1]).slice(0,2);
+      if(chapTopSubs.length === 0 && subCount > 0) {
+        // Fall back to global top subs
+        const fallback = s.topSubs.slice(0,2).map(([s])=>`<strong>${s}</strong>`).join(' and ');
+        return ` Focus on ${fallback} specifically.`;
+      }
+      if(chapTopSubs.length === 1) return ` Especially <strong>${chapTopSubs[0][0]}</strong> (${chapTopSubs[0][1]} wrong).`;
+      return ` Especially <strong>${chapTopSubs[0][0]}</strong> (${chapTopSubs[0][1]} wrong) and <strong>${chapTopSubs[1][0]}</strong> (${chapTopSubs[1][1]} wrong).`;
+    };
+
+    // Fix 1: Use s.priority (computed from NEET marksBand) not raw accuracy% to select tier
+    const planTier = s.priority === 'high' && s.marksPct < 10 ? 'critical'
+                   : s.priority === 'high' ? 'high'
+                   : s.priority === 'medium' ? 'medium' : 'low';
     let plan = '';
-    if (accuracy < 20) {
+    if (planTier === 'critical') {
       const diagnosisLine = unattempted > totalQ * 0.25
         ? `<strong>Note:</strong> ${unattempted} questions unattempted — low confidence or time management crisis alongside concept gaps.`
-        : `Only ${accuracy}% accuracy across ${totalQ} questions — this is a <strong>foundational understanding gap</strong>, not a revision issue.`;
+        : `Only ${s.pct}% accuracy across ${totalQ} questions — this is a <strong>foundational understanding gap</strong>, not a revision issue.`;
       plan = `<span style="color:#B71C1C;font-weight:700">⚠ Critical — Rebuild from Basics</span><br>
 ${diagnosisLine}${unattemptedLine}<br><br>
-${errAdvice}${subLine ? '<br>'+subLine : ''}<br><br>
-<strong>Week 1:</strong> Do NOT attempt more MCQs yet. Open NCERT for <strong>${top3[0]||s.w1}</strong> and read each section carefully. After each section, close the book and write a 5-line summary in your own words.<br>
-<strong>Week 2:</strong> Repeat for <strong>${top3[1]||s.w2}</strong>${top3[2]?` and <strong>${top3[2]}</strong>`:''}. Draw labelled diagrams from scratch — don't copy.<br>
-<strong>Week 3:</strong> Now attempt 10 MCQs per chapter. For each wrong answer, write the correct explanation in a notebook.<br>
-<strong>Week 4:</strong> Take a 50-question mock on your two weakest chapters. <strong>Milestone: 40%+ accuracy.</strong>`;
-    } else if (accuracy < 40) {
+${errAdvice}${examStrategyNote}<br><br>
+<strong>${T('Day 1–2','Week 1','Week 1')}:</strong> Do NOT attempt MCQs yet. Open NCERT for <strong>${disp_top[0]||disp_w1}</strong> and read each section carefully.${subFocusLine(s.w1)} After each section, close the book and write a 5-line summary in your own words.<br>
+<strong>${T('Day 3–4','Week 2','Week 2')}:</strong> Repeat for <strong>${disp_top[1]||disp_w2}</strong>${disp_top[2]?' and <strong>'+disp_top[2]+'</strong>':'. Draw labelled diagrams from scratch.'}${subFocusLine(s.w2)}<br>
+<strong>${T('Day 5–6','Week 3','Week 3')}:</strong> Now attempt ${T('10','15','20')} MCQs per chapter. For each wrong answer, write the correct explanation in a notebook.<br>
+<strong>${T('Day 7','Week 4','Week 4')}:</strong> Take a ${T('30','50','90')}-question mock on your two weakest chapters. <strong>Milestone: Reach ${Math.round(s.maxMarks*0.25)} marks. You are at ${s.neetMarks} — gap = ${Math.max(0,Math.round(s.maxMarks*0.25)-s.neetMarks)} marks (~${Math.max(0,Math.ceil((Math.round(s.maxMarks*0.25)-s.neetMarks)/5))} more correct answers).</strong>`;
+    } else if (planTier === 'high') {
       const spreadEvenly = chapRanked.length>1 && Math.abs(chapRanked[0][1]-chapRanked[1][1])<=3;
+      const w1Rate = chapWrongRate[s.w1] !== undefined ? Math.round(chapWrongRate[s.w1]*100) : Math.round((s.chapWrong[s.w1]||0) / (s.chapTotals[s.w1]||1) * 100);
       const focusLine = spreadEvenly
         ? `Errors are spread across multiple chapters — broad conceptual weakness, not one chapter issue.`
-        : `<strong>${s.w1}</strong> has the highest wrong rate (${Math.round(chapWrongRate[s.w1]*100)}%), but all chapters need attention.`;
+        : `<strong>${disp_w1}</strong> has the highest wrong rate (${w1Rate}%), but all chapters need attention.`;
       plan = `<span style="color:#E65100;font-weight:700">🔶 High Risk — Structured Revision Needed</span><br>
 ${focusLine}${unattemptedLine}<br>
-${errAdvice}${subLine ? '<br>'+subLine : ''}<br><br>
-<strong>Day 1–2:</strong> NCERT for <strong>${s.w1}</strong>. Re-read, then list every concept you couldn't recall without looking.<br>
-<strong>Day 3–4:</strong> Redo all wrong questions from <strong>${s.w1}</strong> and <strong>${s.w2}</strong> — write out full reasoning for each.<br>
-<strong>Day 5:</strong> Attempt 15 fresh MCQs on <strong>${s.w1}</strong>. Wrong again = back to NCERT.<br>
-<strong>Day 6–7:</strong> Cover <strong>${top3[2]||s.w2}</strong> the same way. <strong>Milestone: NEET marks above ${Math.round(s.maxMarks*0.35)}.</strong>`;
-    } else if (accuracy < 60) {
+${errAdvice}${examStrategyNote}<br><br>
+<strong>${T('Day 1','Day 1–2','Day 1–3')}:</strong> Open NCERT for <strong>${disp_w1}</strong>.${subFocusLine(s.w1)} Re-read, then list every concept you couldn't recall without looking.<br>
+<strong>${T('Day 2','Day 3–4','Day 4–6')}:</strong> Redo all wrong questions from <strong>${disp_w1}</strong> and <strong>${disp_w2}</strong>${subFocusLine(s.w2)} — write out full reasoning for each.<br>
+<strong>${T('Day 3','Day 5','Day 7–8')}:</strong> Attempt ${T('15','20','25')} fresh MCQs on <strong>${disp_w1}</strong>. Wrong again = back to NCERT.<br>
+<strong>${T('Day 4–5','Day 6–7','Day 9–14')}:</strong> Cover <strong>${disp_top[2]||disp_w2}</strong> the same way.${subFocusLine(disp_top[2]||s.w2)} <strong>Milestone: Reach ${Math.round(s.maxMarks*0.35)} marks. You are at ${s.neetMarks} — gap = ${Math.max(0,Math.round(s.maxMarks*0.35)-s.neetMarks)} marks (~${Math.max(0,Math.ceil((Math.round(s.maxMarks*0.35)-s.neetMarks)/5))} more correct answers).</strong>`;
+    } else if (planTier === 'medium') {
       const highRateChap = chapRanked.find(([ch,,r]) => r >= 0.5);
       const subConceptTip = highRateChap
-        ? `<strong>${highRateChap[0]}</strong> has ${Math.round(highRateChap[2]*100)}% wrong rate — this chapter needs focused work.`
+        ? `<strong>${resolveChap(highRateChap[0])}</strong> has ${Math.round(highRateChap[2]*100)}% wrong rate — this chapter needs focused work.`
         : `Errors are scattered — you know concepts broadly but miss details under exam conditions.`;
       plan = `<span style="color:#F9A825;font-weight:700">🟡 Medium Risk — Targeted Gap Closing</span><br>
 ${subConceptTip}${unattemptedLine}<br>
-${errAdvice}${subLine ? '<br>'+subLine : ''}<br><br>
-<strong>Day 1:</strong> List every wrong question from <strong>${s.w1}</strong>. Group by sub-topic. Find the 2–3 recurring gaps.<br>
-<strong>Day 2:</strong> Re-read only those sub-topics in NCERT — not the full chapter. Make a 10-point fact sheet per sub-topic.<br>
-<strong>Day 3:</strong> 20 fresh MCQs on <strong>${s.w1}</strong> and <strong>${s.w2}</strong> timed. <strong>Target: NEET marks above ${Math.round(s.maxMarks*0.55)}.</strong>`;
+${errAdvice}${examStrategyNote}<br><br>
+<strong>${T('Day 1','Day 1–2','Day 1–3')}:</strong> List every wrong question from <strong>${disp_w1}</strong>. Group by sub-topic. Find the 2–3 recurring gaps.${subFocusLine(s.w1)}<br>
+<strong>${T('Day 2','Day 3–4','Day 4–6')}:</strong> Re-read only those sub-topics in NCERT — not the full chapter.${sub1 ? ` Start with <strong>${sub1}</strong>${sub2 ? ` then <strong>${sub2}</strong>`:''}.` : ''} Make a 10-point fact sheet per sub-topic.<br>
+<strong>${T('Day 3','Day 5–7','Day 7–14')}:</strong> ${T('20','30','45')} fresh MCQs on <strong>${disp_w1}</strong> and <strong>${disp_w2}</strong> timed.${subFocusLine(s.w2)} <strong>Milestone: Reach ${Math.round(s.maxMarks*0.55)} marks. You are at ${s.neetMarks} — gap = ${Math.max(0,Math.round(s.maxMarks*0.55)-s.neetMarks)} marks (~${Math.max(0,Math.ceil((Math.round(s.maxMarks*0.55)-s.neetMarks)/5))} more correct answers).</strong>`;
     } else {
       const mainGap = chapRanked[0];
-      const isMinorGap = mainGap && mainGap[1] <= 5;
+      const isMinorGap = mainGap && mainGap[1] <= Math.ceil(totalQ * 0.06);
       const fineTuneLine = isMinorGap
-        ? `Only ${s.totalWrong} wrong — minor gaps concentrated in <strong>${mainGap[0]}</strong> (${mainGap[1]} wrong).`
-        : `Strong overall at ${accuracy}% accuracy. Targeted sub-topic work will push NEET marks higher.`;
+        ? `Only ${s.totalWrong} wrong — minor gaps concentrated in <strong>${resolveChap(mainGap[0])}</strong> (${mainGap[1]} wrong).`
+        : `Strong overall at ${s.pct}% accuracy. Targeted sub-topic work will push NEET marks higher.`;
       plan = `<span style="color:#2E7D32;font-weight:700">🟢 Low Risk — Polish & Push Higher</span><br>
 ${fineTuneLine}${unattemptedLine}<br>
-${errAdvice}${subLine ? '<br>'+subLine : ''}<br><br>
-<strong>Day 1:</strong> Review only the specific questions wrong in <strong>${s.w1}</strong>${chapRanked[1]?` and <strong>${chapRanked[1][0]}</strong>`:''} — identify the exact concept tested in each.<br>
-<strong>Day 2:</strong> Write a one-line "rule" for each wrong answer. Build a personal quick-reference sheet.<br>
-<strong>Day 3:</strong> 20 fresh MCQs on weak sub-topics timed. <strong>Target: 85%+ accuracy / NEET marks above ${Math.round(s.maxMarks*0.75)}.</strong>`;
+${errAdvice}${examStrategyNote}<br><br>
+<strong>${T('Day 1','Day 1–2','Day 1–3')}:</strong> Review only the specific questions wrong in <strong>${disp_w1}</strong>${chapRanked[1]?` and <strong>${resolveChap(chapRanked[1][0])}</strong>`:''}. Identify the exact concept tested in each.${subFocusLine(s.w1)}<br>
+<strong>${T('Day 2','Day 3','Day 4–5')}:</strong> Write a one-line "rule" for each wrong answer.${sub1 ? ` Pay special attention to <strong>${sub1}</strong>${sub2 ? ` and <strong>${sub2}</strong>`:''}.` : ''} Build a personal quick-reference sheet.<br>
+<strong>${T('Day 3','Day 4–7','Day 6–14')}:</strong> ${T('20','30','45')} fresh MCQs on weak sub-topics timed. <strong>Milestone: Reach ${Math.round(s.maxMarks*0.75)} marks. You are at ${s.neetMarks} — gap = ${Math.max(0,Math.round(s.maxMarks*0.75)-s.neetMarks)} marks (~${Math.max(0,Math.ceil((Math.round(s.maxMarks*0.75)-s.neetMarks)/5))} more correct answers).</strong>`;
     }
-    // ── END SMART ACTION PLAN ──────────────────────────────────
+        // ── END SMART ACTION PLAN ──────────────────────────────────
+
+    // Store plain-text plan for Excel export and PDF
+    s._planText = plan;
 
     // Fix #8: Answer grid grouped by chapter
     const ansHtml = Object.entries(QP.chapGroups).map(([ch, indices]) => {
@@ -932,12 +1042,13 @@ ${errAdvice}${subLine ? '<br>'+subLine : ''}<br><br>
     const neetDisplay = `<span style="color:${marksColor};font-weight:700">${s.neetMarks}</span><span style="font-size:10px;color:#999">/${s.maxMarks}</span>`;
 
     return `<div class="srow">
-      <div class="shdr" style="grid-template-columns:180px 110px 140px 140px 110px 22px" onclick="toggleS(${i})">
+      <div class="shdr" style="grid-template-columns:180px 110px 140px 140px 110px 80px 22px" onclick="toggleS(${i})">
         <span style="font-weight:700">${s.name}</span>
         <span>${neetDisplay}</span>
         <span class="ch-badge" style="background:${w1bg};color:${w1tc}">${s.w1}</span>
         <span class="ch-badge" style="background:${w2bg};color:${w2tc}">${s.w2}</span>
         ${prB[s.priority]}
+        <button onclick="event.stopPropagation();genStudentPDF('${s.name.replace(/\\/g,'\\\\').replace(/'/g,"\\'")}')" style="padding:4px 8px;background:#B71C1C;color:white;border:none;border-radius:5px;font-size:11px;font-weight:600;cursor:pointer">📄 PDF</button>
         <span id="sarr-${i}" style="color:#aaa;font-size:11px">▶</span>
       </div>
       <div class="sdetail" id="sdet-${i}">
@@ -1196,8 +1307,388 @@ function loadSampleStudents() {
 }
 
 // ══════════════════════════════════════════════════════════════
-// HELPERS
+// INDIVIDUAL STUDENT PDF
 // ══════════════════════════════════════════════════════════════
+function genStudentPDF(name) {
+  const {jsPDF} = window.jspdf;
+  const doc = new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+  const s = RPT.studentReports.find(x => x.name === name);
+  if(!s){alert('Student not found');return;}
+  const KEY = QP.questions.map(q=>q.ans);
+  const W=210, M=16;
+  let y=0;
+
+  // Header
+  doc.setFillColor(31,56,100);
+  doc.rect(0,0,W,38,'F');
+  doc.setTextColor(255,255,255);
+  doc.setFont('helvetica','bold'); doc.setFontSize(20);
+  doc.text('BioRivet',M,15);
+  doc.setFont('helvetica','normal'); doc.setFontSize(10);
+  doc.text('NEET Diagnostic Report',M,22);
+  doc.setFontSize(8); doc.setTextColor(160,185,220);
+  doc.text('Know More. Fear Less. | biorivet.com',M,29);
+  const today = new Date().toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
+  doc.text('Generated: '+today, W-M, 15, {align:'right'});
+  y=46;
+
+  // Student name block
+  doc.setFillColor(232,239,249);
+  doc.roundedRect(M,y,W-2*M,22,3,3,'F');
+  doc.setTextColor(31,56,100); doc.setFont('helvetica','bold'); doc.setFontSize(16);
+  doc.text(s.name, M+8, y+9);
+  doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(100,120,160);
+  doc.text('Individual Diagnostic Report | NEET Scoring: +4 Correct / −1 Wrong', M+8, y+16);
+  y+=30;
+
+  // Score cards
+  const marksColor = s.priority==='high'?[192,57,43]:s.priority==='medium'?[180,120,10]:[27,122,62];
+  const rank = [...RPT.studentReports].sort((a,b)=>b.neetMarks-a.neetMarks).findIndex(x=>x.name===name)+1;
+  const cards=[
+    {label:'NEET MARKS', value:String(s.neetMarks)+'/'+String(s.maxMarks), sub:'(+4/−1 scoring)', c:marksColor},
+    {label:'ACCURACY',   value:s.pct+'%', sub:s.totalCorrect+' correct', c:s.pct>=70?[27,122,62]:s.pct>=50?[180,120,10]:[192,57,43]},
+    {label:'BATCH RANK', value:'#'+rank+'/'+RPT.N, sub:'by NEET marks', c:[46,94,168]},
+    {label:'PRIORITY',   value:s.priority.toUpperCase(), sub:'review urgency', c:marksColor},
+  ];
+  const cw=(W-2*M-9)/4;
+  cards.forEach((card,i)=>{
+    const cx=M+i*(cw+3);
+    doc.setFillColor(...card.c);
+    doc.roundedRect(cx,y,cw,22,2,2,'F');
+    doc.setTextColor(255,255,255);
+    doc.setFont('helvetica','bold'); doc.setFontSize(6.5);
+    doc.text(card.label, cx+cw/2, y+6, {align:'center'});
+    doc.setFontSize(13);
+    doc.text(card.value, cx+cw/2, y+15, {align:'center'});
+    doc.setFontSize(6); doc.setFont('helvetica','normal'); doc.setTextColor(200,220,240);
+    doc.text(card.sub, cx+cw/2, y+20, {align:'center'});
+  });
+  y+=30;
+
+  // Marks breakdown row
+  doc.setFillColor(245,248,255);
+  doc.roundedRect(M,y,W-2*M,12,2,2,'F');
+  doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(50,50,50);
+  doc.text(`✅ Correct: ${s.totalCorrect}  (+${s.totalCorrect*4} marks)`, M+6, y+7.5);
+  doc.text(`❌ Wrong: ${s.totalWrong}  (−${s.totalWrong} marks)`, M+70, y+7.5);
+  doc.text(`⚪ Unattempted: ${s.totalUnattempted}  (0 marks)`, M+130, y+7.5);
+  y+=18;
+
+  // Chapter performance
+  doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(31,56,100);
+  doc.text('Chapter Performance',M,y);
+  doc.setDrawColor(200,215,235); doc.line(M,y+2,W-M,y+2);
+  y+=8;
+  Object.entries(RPT.chapterStats).forEach(([ch,cstat])=>{
+    const cw2=s.chapWrong[ch]||0;
+    const qcount=QP.chapGroups[ch].length;
+    const correct=qcount-cw2-(s.chapUnattempted[ch]||0);
+    const pct=qcount>0?Math.round((correct/qcount)*100):0;
+    const wrongRate=qcount>0?Math.round((cw2/qcount)*100):0;
+    const barW=W-2*M-60;
+    doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(30,30,30);
+    doc.text(ch, M, y+4);
+    doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(100,100,100);
+    doc.text(correct+'/'+qcount+' correct ('+wrongRate+'% wrong)', M+55, y+4);
+    doc.setFillColor(230,235,245);
+    doc.roundedRect(M+90,y,barW,5,1,1,'F');
+    const bc=pct>=70?[39,174,96]:pct>=50?[243,156,18]:[231,76,60];
+    doc.setFillColor(...bc);
+    doc.roundedRect(M+90,y,Math.max(barW*pct/100,2),5,1,1,'F');
+    doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(...bc);
+    doc.text(pct+'%', W-M, y+4, {align:'right'});
+    const badge=cstat.level==='critical'?'⚠ Critical':cstat.level==='needs'?'→ Review':'✓ Strong';
+    doc.setFont('helvetica','normal'); doc.setFontSize(7); doc.setTextColor(...bc);
+    doc.text(badge, M+55, y+10);
+    y+=14;
+  });
+  y+=4;
+
+  // Answer grid
+  if(y>220){doc.addPage();y=16;}
+  doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(31,56,100);
+  doc.text('Answer Analysis', M, y);
+  doc.setDrawColor(200,215,235); doc.line(M,y+2,W-M,y+2);
+  y+=6;
+  // Legend
+  doc.setFont('helvetica','normal'); doc.setFontSize(7); doc.setTextColor(80,80,80);
+  doc.setFillColor(220,244,225); doc.roundedRect(M,y,16,5,1,1,'F');
+  doc.setTextColor(27,122,62); doc.text('✓ Correct',M+1,y+3.5);
+  doc.setFillColor(254,226,226); doc.roundedRect(M+19,y,26,5,1,1,'F');
+  doc.setTextColor(180,30,30); doc.text('✗ Wrong (key→got)',M+20,y+3.5);
+  doc.setFillColor(240,240,245); doc.roundedRect(M+48,y,22,5,1,1,'F');
+  doc.setTextColor(120,120,140); doc.text('– Unattempted',M+49,y+3.5);
+  y+=9;
+
+  // Cells: wrong cells show "KEY→got" so it's immediately clear
+  const cellW=11, cellH=11, cols=16, gap=1.2;
+  QP.questions.forEach((q,qi)=>{
+    const ans=s.answers[qi];
+    const correctAns=KEY[qi];
+    const ok=ans===correctAns;
+    const blank=ans==='';
+    const col2=qi%cols, rowN=Math.floor(qi/cols);
+    const cx=M+col2*(cellW+gap), cy=y+rowN*(cellH+gap);
+    // Check if we need a new page
+    if(cy+cellH > 270){ return; } // skip overflow (handled by page break below)
+
+    if(blank){
+      doc.setFillColor(240,240,245);
+    } else if(ok){
+      doc.setFillColor(220,244,225);
+    } else {
+      doc.setFillColor(254,226,226);
+    }
+    doc.roundedRect(cx,cy,cellW,cellH,1,1,'F');
+
+    // Q number at top of cell
+    doc.setFont('helvetica','normal'); doc.setFontSize(4.5);
+    doc.setTextColor(120,120,140);
+    doc.text(q.qno, cx+cellW/2, cy+3, {align:'center'});
+
+    if(blank){
+      doc.setFont('helvetica','bold'); doc.setFontSize(7);
+      doc.setTextColor(160,160,180);
+      doc.text('–', cx+cellW/2, cy+8.5, {align:'center'});
+    } else if(ok){
+      doc.setFont('helvetica','bold'); doc.setFontSize(8);
+      doc.setTextColor(27,122,62);
+      doc.text(ans, cx+cellW/2, cy+8.5, {align:'center'});
+    } else {
+      // Wrong: show correct key (top) and student answer (bottom, struck out visually)
+      doc.setFont('helvetica','bold'); doc.setFontSize(6.5);
+      doc.setTextColor(180,30,30);
+      doc.text(correctAns+'→'+ans, cx+cellW/2, cy+8, {align:'center'});
+    }
+  });
+  const gridRows=Math.ceil(QP.questions.length/cols);
+  y+=gridRows*(cellH+gap)+8;
+  // Page break if grid pushed us too far
+  if(y>255){doc.addPage();y=16;}
+
+  // Action plan
+  if(y>230){doc.addPage();y=16;}
+  doc.setFillColor(31,56,100);
+  doc.roundedRect(M,y,W-2*M,8,2,2,'F');
+  doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(10);
+  doc.text('Personalised Action Plan', M+6, y+5.5);
+  doc.setFontSize(7); doc.setFont('helvetica','normal'); doc.setTextColor(160,185,220);
+  doc.text('Focus: '+s.w1+' · '+s.w2, W-M-4, y+5.5, {align:'right'});
+  y+=12;
+
+  // Strip HTML from plan
+  const tmp=document.createElement('div'); tmp.innerHTML=s._planText||'';
+  const planClean=(tmp.textContent||tmp.innerText||'').replace(/\n+/g,'\n').trim();
+  const planLines=doc.splitTextToSize(planClean, W-2*M);
+  // Fix 9: never truncate plan — paginate properly
+  const lineH = 5;
+  const topPad = 6, botPad = 6;
+  const pageBottom = 278; // safe bottom margin on A4
+  // Render plan lines across pages if needed
+  let remainingLines = [...planLines];
+  let firstBlock = true;
+  while(remainingLines.length > 0) {
+    const availH = pageBottom - y - topPad - botPad;
+    const linesPerBlock = Math.max(1, Math.floor(availH / lineH));
+    const blockLines = remainingLines.splice(0, linesPerBlock);
+    const blockH = blockLines.length * lineH + topPad + botPad;
+    doc.setFillColor(245,248,253);
+    doc.roundedRect(M, y, W-2*M, blockH, 2, 2, 'F');
+    doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(30,40,60);
+    doc.text(blockLines, M+4, y+topPad);
+    y += blockH + 4;
+    if(remainingLines.length > 0) {
+      doc.addPage(); y = 16;
+      // Continuation header
+      doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(31,56,100);
+      doc.text('Action Plan (continued)', M, y); y += 6;
+    }
+  }
+
+  // Top sub-concepts
+  if(s.topSubs && s.topSubs.length>0 && y<260){
+    doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(31,56,100);
+    doc.text('Key Sub-Topics to Revise:', M, y);
+    y+=5;
+    s.topSubs.forEach(([sub,w])=>{
+      doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(50,50,50);
+      doc.text('• '+sub+' ('+w+' wrong)', M+4, y); y+=5;
+    });
+  }
+
+  // Footer
+  doc.setFillColor(31,56,100);
+  doc.rect(0,285,W,12,'F');
+  doc.setTextColor(160,185,220); doc.setFont('helvetica','normal'); doc.setFontSize(7);
+  doc.text('BioRivet · Know More. Fear Less. · biorivet.com', W/2, 291, {align:'center'});
+  doc.text('CONFIDENTIAL — For student and guardian use only', W/2, 295, {align:'center'});
+
+  doc.save('BioRivet_'+s.name.replace(/\s+/g,'_')+'_Report.pdf');
+}
+
+// ══════════════════════════════════════════════════════════════
+// BATCH SUMMARY PDF
+// ══════════════════════════════════════════════════════════════
+function genBatchPDF() {
+  if(!RPT){alert('Generate report first.');return;}
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+  const r=RPT, W=210, M=16;
+  let y=0;
+
+  // Header
+  doc.setFillColor(31,56,100); doc.rect(0,0,W,38,'F');
+  doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(16);
+  doc.text('BioRivet — Batch Diagnostic Summary',M,14);
+  doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(160,185,220);
+  const today=new Date().toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
+  doc.text('Institute Report · '+today+' · NEET Scoring: +4 Correct / −1 Wrong',M,22);
+  doc.text(r.N+' students · '+r.totalQ+' questions · Max '+r.totalQ*4+' NEET marks',M,29);
+  y=44;
+
+  // Metric cards
+  const avgPct=Math.round((r.avgNeetMarks/(r.totalQ*4))*100);
+  const mets=[
+    {l:'Students',v:String(r.N),c:[31,56,100]},
+    {l:'Avg NEET Marks',v:r.avgNeetMarks+'/'+(r.totalQ*4),c:avgPct>=50?[27,122,62]:avgPct>=30?[180,120,10]:[192,57,43]},
+    {l:'High Risk',v:String(r.highRisk),c:[192,57,43]},
+    {l:'Weakest Chapter',v:r.worstCh,c:[180,120,10]},
+  ];
+  const mw=(W-2*M-9)/4;
+  mets.forEach((m,i)=>{
+    const cx=M+i*(mw+3);
+    doc.setFillColor(...m.c); doc.roundedRect(cx,y,mw,18,2,2,'F');
+    doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(6.5);
+    doc.text(m.l.toUpperCase(),cx+mw/2,y+5.5,{align:'center'});
+    doc.setFontSize(i===3?9:13);
+    doc.text(m.v,cx+mw/2,y+13,{align:'center'});
+  });
+  y+=24;
+
+  // Chapter analysis
+  doc.setFillColor(31,56,100); doc.roundedRect(M,y,W-2*M,7,2,2,'F');
+  doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(9);
+  doc.text('Chapter-Wise Error Analysis',M+4,y+4.5);
+  y+=9;
+  doc.setFillColor(232,239,249); doc.rect(M,y,W-2*M,6,'F');
+  doc.setFont('helvetica','bold'); doc.setFontSize(7.5); doc.setTextColor(31,56,100);
+  doc.text('Chapter',M+3,y+4); doc.text('Qs',M+52,y+4);
+  doc.text('Wrong',M+64,y+4); doc.text('Error Rate',M+86,y+4);
+  doc.text('Bar',M+116,y+4); doc.text('Status',M+156,y+4);
+  y+=6;
+  Object.entries(r.chapterStats).forEach(([ch,cs],i)=>{
+    const pct=Math.round(cs.pct*100);
+    const bg=i%2?[255,255,255]:[249,250,253];
+    doc.setFillColor(...bg); doc.rect(M,y,W-2*M,8,'F');
+    doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(30,30,30);
+    doc.text(ch,M+3,y+5.2);
+    doc.text(cs.qs,M+52,y+5.2);
+    doc.text(String(cs.totalWrong)+'/'+String(cs.max),M+64,y+5.2);
+    const bc=cs.level==='critical'?[192,57,43]:cs.level==='needs'?[180,120,10]:[27,122,62];
+    doc.setFont('helvetica','bold'); doc.setTextColor(...bc);
+    doc.text(pct+'%',M+92,y+5.2);
+    doc.setFillColor(220,228,240); doc.roundedRect(M+110,y+2,40,4,1,1,'F');
+    doc.setFillColor(...bc); doc.roundedRect(M+110,y+2,Math.max(40*pct/100,1),4,1,1,'F');
+    doc.setFont('helvetica','normal'); doc.setFontSize(7); doc.setTextColor(...bc);
+    const lbl=cs.level==='critical'?'⚠ Critical':cs.level==='needs'?'→ Attention':'✓ Strong';
+    doc.text(lbl,M+156,y+5.2);
+    y+=8;
+  });
+  y+=6;
+
+  // Section D hardest questions
+  if(r.hardestQs && r.hardestQs.length>0){
+    doc.setFillColor(180,40,40); doc.roundedRect(M,y,W-2*M,7,2,2,'F');
+    doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(9);
+    doc.text('Hardest Questions (≥50% of batch got wrong)',M+4,y+4.5);
+    y+=9;
+    doc.setFillColor(232,239,249); doc.rect(M,y,W-2*M,6,'F');
+    doc.setFont('helvetica','bold'); doc.setFontSize(7.5); doc.setTextColor(31,56,100);
+    doc.text('Q No',M+3,y+4); doc.text('Chapter',M+20,y+4); doc.text('Sub-Concept',M+70,y+4); doc.text('Wrong Rate',M+140,y+4);
+    y+=6;
+    r.hardestQs.slice(0,8).forEach((q,i)=>{
+      doc.setFillColor(i%2?255:254,i%2?255:249,i%2?255:249); doc.rect(M,y,W-2*M,7,'F');
+      doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(50,50,50);
+      doc.text(q.qno,M+3,y+4.5);
+      doc.text(q.chapter,M+20,y+4.5);
+      doc.text((q.sub||'—').substring(0,30),M+70,y+4.5);
+      doc.setTextColor(192,57,43); doc.setFont('helvetica','bold');
+      doc.text(Math.round(q.hardness*100)+'%',M+144,y+4.5);
+      y+=7;
+    });
+    y+=4;
+  }
+
+  // Top 5 high-risk students
+  doc.setFillColor(192,57,43); doc.roundedRect(M,y,W-2*M,7,2,2,'F');
+  doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(9);
+  doc.text('Top High-Risk Students — Immediate Attention Required',M+4,y+4.5);
+  y+=9;
+  const hiStudents=[...r.studentReports].filter(s=>s.priority==='high').sort((a,b)=>b.totalWrong-a.totalWrong).slice(0,5);
+  if(hiStudents.length===0){
+    doc.setFont('helvetica','italic'); doc.setFontSize(9); doc.setTextColor(27,122,62);
+    doc.text('No high-risk students. Excellent batch performance!',M+4,y+6); y+=14;
+  } else {
+    doc.setFillColor(232,239,249); doc.rect(M,y,W-2*M,6,'F');
+    doc.setFont('helvetica','bold'); doc.setFontSize(7.5); doc.setTextColor(31,56,100);
+    doc.text('Student',M+3,y+4); doc.text('NEET Marks',M+72,y+4); doc.text('Accuracy',M+108,y+4); doc.text('Weakest Chapter',M+132,y+4); doc.text('Wrong',M+177,y+4);
+    y+=6;
+    hiStudents.forEach((s,i)=>{
+      doc.setFillColor(i%2?255:254,i%2?255:240,i%2?255:240); doc.rect(M,y,W-2*M,9,'F');
+      doc.setFont('helvetica','bold'); doc.setFontSize(8.5); doc.setTextColor(30,30,30);
+      doc.text(s.name,M+3,y+5.5);
+      doc.setFont('helvetica','normal');
+      doc.text(s.neetMarks+'/'+s.maxMarks,M+72,y+5.5);
+      doc.text(s.pct+'%',M+108,y+5.5);
+      doc.text(s.w1,M+132,y+5.5);
+      doc.setTextColor(192,57,43); doc.setFont('helvetica','bold');
+      doc.text(String(s.totalWrong),M+181,y+5.5);
+      y+=9;
+    });
+    y+=4;
+  }
+
+  // Recommendations
+  if(y>240){doc.addPage();y=16;}
+  doc.setFillColor(31,56,100); doc.roundedRect(M,y,W-2*M,7,2,2,'F');
+  doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(9);
+  doc.text('Key Recommendations',M+4,y+4.5);
+  y+=11;
+  const topErr=r.mem>=r.con&&r.mem>=r.app?'Memory':r.con>=r.app?'Conceptual':'Application';
+  const recs=[
+    '1. Schedule a dedicated 45-min revision class on '+r.worstCh+' before next test cycle.',
+    '2. '+r.highRisk+' high-risk students need individual counselling + targeted sessions this week.',
+    '3. '+r.bestCh+' is the strongest chapter — reduce revision time here, redirect to weak areas.',
+    '4. Dominant error type is '+topErr+'. '+(topErr==='Memory'?'Use spaced repetition and flashcard drills.':topErr==='Conceptual'?'Focus on mechanisms and diagrams, not definitions.':'Increase timed MCQ practice.'),
+    '5. Re-test all students on '+r.worstCh+(r.hardestQs.length>0?' and '+r.hardestQs.length+' hardest questions':'')+' within 7 days.',
+  ];
+  recs.forEach(rec=>{
+    doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(30,40,60);
+    const lines=doc.splitTextToSize(rec,W-2*M);
+    doc.text(lines,M,y); y+=lines.length*5+3;
+  });
+
+  // Footer
+  doc.setFillColor(31,56,100); doc.rect(0,285,W,12,'F');
+  doc.setTextColor(160,185,220); doc.setFont('helvetica','normal'); doc.setFontSize(7);
+  doc.text('BioRivet · Know More. Fear Less. · biorivet.com | Batch Report — Institute Confidential',W/2,291,{align:'center'});
+  doc.text('Share with: Institute Director and Faculty only',W/2,295,{align:'center'});
+
+  doc.save('BioRivet_Batch_Summary.pdf');
+}
+
+// All student PDFs
+async function genAllStudentPDFs() {
+  if(!RPT){alert('Generate report first.');return;}
+  // renderSecB must have been called so _planText is set
+  const sorted=[...RPT.studentReports].sort((a,b)=>b.neetMarks-a.neetMarks);
+  for(let i=0;i<sorted.length;i++){
+    genStudentPDF(sorted[i].name);
+    await new Promise(r=>setTimeout(r,500));
+  }
+}
+
+
 function showErr(type, msg) {
   const el=document.getElementById(type+'-err');
   el.textContent=msg; el.style.display='block';
