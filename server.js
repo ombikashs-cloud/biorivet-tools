@@ -13,7 +13,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 // API Endpoint for Auto-Tagging
 app.post('/api/auto-tag', async (req, res) => {
     try {
-        const { questions } = req.body;
+        const { questions, tagType } = req.body;
         if (!questions || !Array.isArray(questions)) {
             return res.status(400).json({ error: 'Invalid question data provided.' });
         }
@@ -23,15 +23,45 @@ app.post('/api/auto-tag', async (req, res) => {
             return res.status(500).json({ error: 'GEMINI_API_KEY is not configured on the server.' });
         }
 
+        let instructions = '';
+        let formatStr = '';
+
+        switch (tagType) {
+            case 'chapter':
+                instructions = `1. "chapter": The most relevant biology/physics/chemistry chapter name (e.g., Digestion, Kinematics, Cell Biology).\n2. "subConcept": The specific sub-topic or concept within that chapter.`;
+                formatStr = `[{"qno": "Q1", "chapter": "Cell Biology", "subConcept": "Cell Membrane"}]`;
+                break;
+            case 'errorType':
+                instructions = `1. "errorType": Classify the question as either "Memory" (rote fact), "Conceptual" (understanding principles), or "Application" (calculating/applying formulas).`;
+                formatStr = `[{"qno": "Q1", "errorType": "Memory"}]`;
+                break;
+            case 'answer':
+                instructions = `1. "ans": The correct answer option: A, B, C, or D. If unsure, take your best guess.`;
+                formatStr = `[{"qno": "Q1", "ans": "B"}]`;
+                break;
+            case 'cognitive':
+                instructions = `1. "cognitiveLevel": Analyze the logic required. Tag as "Recall" (rote facts), "Analysis" (comparing concepts/principles), or "Evaluation" (judging correctness/complex deduction).`;
+                formatStr = `[{"qno": "Q1", "cognitiveLevel": "Analysis"}]`;
+                break;
+            case 'ncert':
+                instructions = `1. "ncertDirectness": How directly is this taken from NCERT? Tag as "Verbatim" (exact lines), "Derived" (concepts from NCERT but modified), or "External" (outside NCERT scope).`;
+                formatStr = `[{"qno": "Q1", "ncertDirectness": "Verbatim"}]`;
+                break;
+            case 'format':
+                instructions = `1. "formatType": The structural format of the question. Tag as "MCQ", "Assertion-Reason", "Statement I & II", or "Match-the-Column".\n2. "targetTime": Estimated ideal time in seconds to solve this question (e.g., 30, 45, 60).`;
+                formatStr = `[{"qno": "Q1", "formatType": "MCQ", "targetTime": 45}]`;
+                break;
+            default:
+                instructions = `1. "chapter": The most relevant biology/physics/chemistry chapter name.\n2. "subConcept": The specific sub-topic or concept within that chapter.\n3. "errorType": Classify the question as "Memory", "Conceptual", or "Application".\n4. "ans": The correct answer option: A, B, C, or D.`;
+                formatStr = `[{"qno": "Q1", "chapter": "Cell Biology", "subConcept": "Cell Membrane", "errorType": "Memory", "ans": "B"}]`;
+        }
+
         // Format the questions into a text prompt
         let promptText = `Analyze the following NEET exam questions. For each question, infer the missing fields:
-1. "chapter": The most relevant biology/physics/chemistry chapter name (e.g., Digestion, Kinematics, Cell Biology).
-2. "subConcept": The specific sub-topic or concept within that chapter.
-3. "errorType": Classify the question as either "Memory" (rote fact), "Conceptual" (understanding principles), or "Application" (calculating/applying formulas).
-4. "ans": The correct answer option: A, B, C, or D. If unsure, take your best guess.
+${instructions}
 
 Return the result STRICTLY as a JSON array of objects. Do not include markdown formatting or any other text.
-Format: [{"qno": "Q1", "chapter": "Cell Biology", "subConcept": "Cell Membrane", "errorType": "Memory", "ans": "B"}]
+Format: ${formatStr}
 
 Questions to analyze:\n`;
 
@@ -57,8 +87,9 @@ Questions to analyze:\n`;
 
         if (data.error) {
             console.error("Gemini API Error:", data.error);
-            // Return the specific error message from Google so the user knows what went wrong
-            return res.status(500).json({ error: data.error.message || 'AI provider error.' });
+            const isRateLimit = data.error.code === 429 || String(data.error.message).includes('429') || String(data.error.message).toLowerCase().includes('exhausted');
+            const statusCode = isRateLimit ? 429 : 500;
+            return res.status(statusCode).json({ error: data.error.message || 'AI provider error.' });
         }
 
         const rawText = data.candidates[0].content.parts[0].text;
@@ -188,7 +219,9 @@ Format: [{"qno": "1", "chapter": "Cell Biology", "difficulty": "Medium", "reason
 
         if (data.error) {
             console.error("Gemini API Error:", data.error);
-            return res.status(500).json({ error: data.error.message || 'AI provider error.' });
+            const isRateLimit = data.error.code === 429 || String(data.error.message).includes('429') || String(data.error.message).toLowerCase().includes('exhausted');
+            const statusCode = isRateLimit ? 429 : 500;
+            return res.status(statusCode).json({ error: data.error.message || 'AI provider error.' });
         }
 
         const rawText = data.candidates[0].content.parts[0].text;

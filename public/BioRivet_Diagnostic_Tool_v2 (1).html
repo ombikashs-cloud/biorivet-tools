@@ -6,108 +6,154 @@
 <title>BioRivet – NEET Diagnostic Tool</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
+:root {
+  --bg-color: #f8fafc;
+  --text-main: #0f172a;
+  --text-muted: #64748b;
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --header-bg: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
+  --card-bg: rgba(255, 255, 255, 0.95);
+  --border: #e2e8f0;
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+  --shadow-lg: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01);
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --green: #10b981;
+  --orange: #f59e0b;
+  --red: #ef4444;
+}
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:Arial,sans-serif;background:#f0f4f8;color:#1a1a2e;font-size:14px}
-.wrap{max-width:1140px;margin:0 auto;padding:20px}
-.header{background:#1F3864;color:white;padding:16px 22px;border-radius:10px;margin-bottom:20px;display:flex;align-items:center;gap:14px}
-.logo{background:white;color:#1F3864;font-weight:700;font-size:13px;width:38px;height:38px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.header h1{font-size:17px;font-weight:700}
-.header p{font-size:11px;opacity:.75;margin-top:2px}
+body{font-family:'Inter',sans-serif;background:var(--bg-color);color:var(--text-main);font-size:14px;line-height:1.5; -webkit-font-smoothing: antialiased;}
+.wrap{max-width:1140px;margin:0 auto;padding:24px 20px}
+
+/* HEADER */
+.header{background:var(--header-bg);color:white;padding:20px 24px;border-radius:var(--radius-lg);margin-bottom:24px;display:flex;align-items:center;gap:16px;box-shadow:var(--shadow-md)}
+.logo{background:white;color:var(--primary);font-weight:800;font-size:20px;width:72px;height:72px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 0 15px rgba(255,255,255,0.2)}
+.header h1{font-size:18px;font-weight:700;letter-spacing:-0.5px}
+.header p{font-size:12px;opacity:0.85;margin-top:4px;font-weight:400}
+.header-tag{font-size:11px; font-weight:700; color:#93c5fd; margin-top:6px; letter-spacing:1px; text-transform:uppercase; text-shadow: 0 0 8px rgba(147,197,253,0.4);}
+
 /* STEP NAV */
-.steps{display:flex;gap:0;margin-bottom:22px;background:white;border-radius:10px;border:1px solid #dde4ef;overflow:hidden}
-.step{flex:1;padding:14px 16px;display:flex;align-items:center;gap:10px;cursor:pointer;border-right:1px solid #dde4ef;position:relative;transition:background .15s}
+.steps{display:flex;gap:0;margin-bottom:24px;background:white;border-radius:var(--radius-md);border:1px solid var(--border);box-shadow:var(--shadow-sm);overflow:hidden}
+.step{flex:1;padding:16px 20px;display:flex;align-items:center;gap:12px;cursor:pointer;border-right:1px solid var(--border);position:relative;transition:all 0.2s ease}
 .step:last-child{border-right:none}
-.step:hover{background:#f7faff}
-.step.active{background:#1F3864;color:white}
-.step.done{background:#f0f7ee;color:#1B5E20}
-.step.locked{opacity:.45;cursor:default;pointer-events:none}
-.step-num{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0}
-.step.active .step-num{background:white;color:#1F3864}
-.step.done .step-num{background:#43A047;color:white}
-.step:not(.active):not(.done) .step-num{background:#dde4ef;color:#555}
+.step:hover:not(.locked){background:#f8fafc}
+.step.active{background:var(--primary);color:white}
+.step.done{background:#f0fdf4;color:#166534}
+.step.locked{opacity:0.5;cursor:not-allowed;}
+.step-num{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;transition:all 0.2s ease}
+.step.active .step-num{background:white;color:var(--primary);box-shadow:0 0 10px rgba(0,0,0,0.1)}
+.step.done .step-num{background:var(--green);color:white}
+.step:not(.active):not(.done) .step-num{background:#e2e8f0;color:#64748b}
 .step-label{font-size:13px;font-weight:600}
-.step-sub{font-size:11px;opacity:.7}
+.step-sub{font-size:11px;opacity:0.8}
+
 /* CARDS */
-.card{background:white;border-radius:10px;border:1px solid #dde4ef;padding:20px;margin-bottom:16px}
-.card-title{font-size:14px;font-weight:700;color:#1F3864;margin-bottom:14px;padding-bottom:8px;border-bottom:2px solid #e8edf5;display:flex;align-items:center;gap:8px}
-.section-hdr{background:#2E5EA8;color:white;padding:8px 16px;border-radius:6px;font-size:13px;font-weight:700;margin-bottom:14px}
+.card{background:var(--card-bg);backdrop-filter:blur(10px);border-radius:var(--radius-lg);border:1px solid rgba(255,255,255,0.5);box-shadow:var(--shadow-lg);padding:24px;margin-bottom:20px;transition:transform 0.2s ease, box-shadow 0.2s ease}
+.card:hover{transform:translateY(-2px);box-shadow:0 15px 30px -5px rgba(0,0,0,0.08)}
+.card-title{font-size:15px;font-weight:700;color:var(--text-main);margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
+.section-hdr{background:linear-gradient(to right, #1e293b, #334155);color:white;padding:10px 18px;border-radius:8px;font-size:13px;font-weight:600;margin-bottom:16px;box-shadow:var(--shadow-sm)}
+
 /* UPLOAD ZONES */
-.upload-pair{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
-.upload-box{border:2px dashed #2E5EA8;border-radius:10px;padding:24px;text-align:center;cursor:pointer;background:#f7faff;transition:background .2s;position:relative}
-.upload-box:hover,.upload-box.drag{background:#dbeeff;border-color:#1F3864}
-.upload-box.loaded{border-style:solid;border-color:#43A047;background:#f0f7ee}
-.upload-icon{font-size:30px;margin-bottom:8px}
-.upload-box h3{font-size:13px;font-weight:700;color:#1F3864;margin-bottom:4px}
-.upload-box p{font-size:11px;color:#666}
-.upload-box .loaded-name{font-size:12px;color:#1B5E20;font-weight:600;margin-top:6px}
+.upload-pair{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px}
+.upload-box{border:2px dashed #cbd5e1;border-radius:var(--radius-md);padding:32px 24px;text-align:center;cursor:pointer;background:#f8fafc;transition:all 0.3s cubic-bezier(0.4, 0, 0.2, 1);position:relative}
+.upload-box:hover,.upload-box.drag{background:#eff6ff;border-color:var(--primary);transform:scale(1.01)}
+.upload-box.loaded{border-style:solid;border-color:var(--green);background:#f0fdf4}
+.upload-icon{font-size:36px;margin-bottom:12px;transition:transform 0.3s ease}
+.upload-box:hover .upload-icon{transform:translateY(-4px)}
+.upload-box h3{font-size:14px;font-weight:700;color:var(--text-main);margin-bottom:6px}
+.upload-box p{font-size:12px;color:var(--text-muted)}
+.upload-box .loaded-name{font-size:13px;color:#166534;font-weight:600;margin-top:8px}
+
 /* FORMAT BOXES */
-.fmt{background:#f7faff;border:1px solid #ccd6e8;border-radius:8px;padding:12px;margin-bottom:12px}
-.fmt code{font-family:'Courier New',monospace;font-size:11px;color:#1F3864;line-height:1.9}
-.fmt-label{font-size:11px;font-weight:700;color:#2E5EA8;margin-bottom:6px}
+.fmt{background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:16px}
+.fmt code{font-family:'JetBrains Mono','Courier New',monospace;font-size:12px;color:#334155;line-height:2}
+.fmt-label{font-size:12px;font-weight:700;color:var(--primary);margin-bottom:8px}
+
 /* TABLES */
-table{width:100%;border-collapse:collapse;font-size:12px}
-th{background:#1F3864;color:white;padding:8px 10px;text-align:left;font-size:11px;font-weight:600}
+table{width:100%;border-collapse:separate;border-spacing:0;font-size:12px;border-radius:8px;overflow:hidden;border:1px solid var(--border)}
+th{background:#f1f5f9;color:#475569;padding:10px 12px;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid var(--border)}
 th.ctr,td.ctr{text-align:center}
-td{padding:7px 10px;border-bottom:1px solid #eef0f5;vertical-align:middle}
-tr:nth-child(even) td{background:#f7f9fc}
-tr:hover td{background:#eef4ff}
+td{padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:middle;color:#334155;transition:background 0.15s ease}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#f8fafc}
+
 /* BADGES */
-.badge{display:inline-block;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600}
-.b-red{background:#FFEBEE;color:#B71C1C}.b-yellow{background:#FFF8E1;color:#E65100}.b-green{background:#E8F5E9;color:#1B5E20}.b-blue{background:#E3F2FD;color:#0D47A1}
-.ch-badge{display:inline-block;padding:2px 9px;border-radius:10px;font-size:11px;font-weight:600}
+.badge{display:inline-block;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.3px}
+.b-red{background:#fee2e2;color:#b91c1c}.b-yellow{background:#fef3c7;color:#b45309}.b-green{background:#dcfce7;color:#15803d}.b-blue{background:#dbeafe;color:#1d4ed8}
+.ch-badge{display:inline-block;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600}
+
 /* BUTTONS */
-.btn{padding:9px 18px;border-radius:6px;border:none;cursor:pointer;font-size:13px;font-weight:600;transition:opacity .15s}
-.btn:hover{opacity:.85}
-.btn-primary{background:#1F3864;color:white}
-.btn-secondary{background:#E3F2FD;color:#0D47A1;border:1px solid #90CAF9}
-.btn-green{background:#E8F5E9;color:#1B5E20;border:1px solid #A5D6A7}
-.btn-orange{background:#FFF3E0;color:#E65100;border:1px solid #FFCC80}
-.btn-xl{padding:12px 28px;font-size:14px;width:100%;margin-top:6px}
+.btn{padding:10px 20px;border-radius:8px;border:none;cursor:pointer;font-size:13px;font-weight:600;transition:all 0.2s cubic-bezier(0.4, 0, 0.2, 1);display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.btn:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,0.1)}
+.btn:active:not(:disabled){transform:translateY(0)}
+.btn:disabled{opacity:0.6;cursor:not-allowed}
+.btn-primary{background:linear-gradient(135deg, var(--primary), #4f46e5);color:white;box-shadow:0 4px 10px rgba(37, 99, 235, 0.2)}
+.btn-primary:hover{box-shadow:0 6px 15px rgba(37, 99, 235, 0.3)}
+.btn-secondary{background:white;color:var(--text-main);border:1px solid var(--border);box-shadow:var(--shadow-sm)}
+.btn-secondary:hover{border-color:#cbd5e1}
+.btn-green{background:linear-gradient(135deg, var(--green), #059669);color:white;box-shadow:0 4px 10px rgba(16, 185, 129, 0.2)}
+.btn-orange{background:linear-gradient(135deg, var(--orange), #d97706);color:white;box-shadow:0 4px 10px rgba(245, 158, 11, 0.2)}
+.btn-xl{padding:14px 32px;font-size:15px;width:100%;margin-top:8px;border-radius:10px}
+
 /* METRICS */
-.metric-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}
-.metric{background:#f0f4fb;border-radius:8px;padding:14px}
-.metric .mlabel{font-size:11px;color:#666;margin-bottom:4px}
-.metric .mval{font-size:22px;font-weight:700;color:#1F3864;line-height:1.1}
-.metric .msub{font-size:10px;color:#999;margin-top:2px}
+.metric-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
+.metric{background:white;border-radius:12px;padding:20px;box-shadow:var(--shadow-md);border:1px solid var(--border);transition:transform 0.2s ease}
+.metric:hover{transform:translateY(-3px);box-shadow:var(--shadow-lg)}
+.metric .mlabel{font-size:12px;color:var(--text-muted);margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px}
+.metric .mval{font-size:28px;font-weight:800;color:var(--text-main);line-height:1.2}
+.metric .msub{font-size:11px;color:#94a3b8;margin-top:4px}
+
 /* PROGRESS */
-.pbar{height:10px;background:#e8edf5;border-radius:5px;overflow:hidden;min-width:80px}
-.pfill{height:100%;border-radius:5px}
+.pbar{height:8px;background:#e2e8f0;border-radius:4px;overflow:hidden;min-width:100px}
+.pfill{height:100%;border-radius:4px;transition:width 1s cubic-bezier(0.4, 0, 0.2, 1)}
+
 /* STUDENT ROWS */
-.srow{border:1px solid #dde4ef;border-radius:8px;margin-bottom:6px;overflow:hidden}
-.shdr{display:grid;gap:10px;align-items:center;padding:10px 14px;background:white;cursor:pointer}
-.shdr:hover{background:#f7f9fc}
-.sdetail{padding:12px 14px;background:#f7faff;border-top:1px solid #dde4ef;display:none}
-.sdetail.open{display:block}
-.ans-grid{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px}
-.ans-cell{width:38px;height:38px;display:flex;align-items:center;justify-content:center;border-radius:4px;font-size:11px;font-weight:700;flex-direction:column;gap:1px}
-.ans-ok{background:#E8F5E9;color:#1B5E20}.ans-err{background:#FFEBEE;color:#B71C1C}.ans-blank{background:#f0f0f0;color:#999}
-.qlbl{font-size:8px;opacity:.65}
+.srow{border:1px solid var(--border);border-radius:8px;margin-bottom:8px;background:white;box-shadow:var(--shadow-sm);transition:all 0.2s ease}
+.srow:hover{box-shadow:var(--shadow-md);border-color:#cbd5e1}
+.shdr{display:grid;gap:12px;align-items:center;padding:12px 16px;cursor:pointer}
+.sdetail{padding:16px;background:#f8fafc;border-top:1px solid var(--border);display:none}
+.sdetail.open{display:block;animation:slideDown 0.3s ease}
+@keyframes slideDown{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:translateY(0)}}
+.ans-grid{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.ans-cell{width:42px;height:42px;display:flex;align-items:center;justify-content:center;border-radius:8px;font-size:12px;font-weight:700;flex-direction:column;gap:2px;box-shadow:var(--shadow-sm);border:1px solid transparent}
+.ans-ok{background:#dcfce7;color:#15803d;border-color:#bbf7d0}
+.ans-err{background:#fee2e2;color:#b91c1c;border-color:#fecaca}
+.ans-blank{background:#f1f5f9;color:#64748b;border-color:var(--border)}
+.qlbl{font-size:9px;opacity:0.7}
+
 /* INSIGHTS */
-.insight{display:flex;gap:12px;align-items:flex-start;padding:13px;border-radius:8px;margin-bottom:8px}
-.idot{width:10px;height:10px;border-radius:50%;flex-shrink:0;margin-top:4px}
+.insight{display:flex;gap:14px;align-items:flex-start;padding:16px;border-radius:10px;margin-bottom:10px;background:white;box-shadow:var(--shadow-sm);border:1px solid var(--border)}
+.idot{width:12px;height:12px;border-radius:50%;flex-shrink:0;margin-top:4px}
+
 /* NAV TABS inside report */
-.rtabs{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap}
-.rtab{padding:7px 16px;border-radius:6px;border:1.5px solid #ccd6e8;background:white;cursor:pointer;font-size:12px;font-weight:500;color:#555}
-.rtab.active{background:#1F3864;color:white;border-color:#1F3864}
+.rtabs{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;background:#f1f5f9;padding:6px;border-radius:10px;display:inline-flex}
+.rtab{padding:8px 20px;border-radius:8px;background:transparent;border:none;cursor:pointer;font-size:13px;font-weight:600;color:#64748b;transition:all 0.2s ease}
+.rtab:hover:not(.active){color:var(--text-main)}
+.rtab.active{background:white;color:var(--primary);box-shadow:var(--shadow-sm)}
+
 /* MISC */
-.footer{background:#1F3864;color:#aaa;text-align:center;padding:12px;border-radius:8px;font-size:11px;margin-top:20px}
-.err-msg{color:#B71C1C;font-size:12px;margin-top:6px;padding:8px;background:#FFEBEE;border-radius:6px;display:none}
-.ok-msg{color:#1B5E20;font-size:12px;margin-top:6px;padding:8px;background:#E8F5E9;border-radius:6px;display:none}
+.footer{background:transparent;color:var(--text-muted);text-align:center;padding:24px;font-size:12px;margin-top:24px;font-weight:500}
+.err-msg{color:#b91c1c;font-size:13px;margin-top:10px;padding:12px;background:#fee2e2;border-radius:8px;display:none;border:1px solid #fecaca}
+.ok-msg{color:#15803d;font-size:13px;margin-top:10px;padding:12px;background:#dcfce7;border-radius:8px;display:none;border:1px solid #bbf7d0}
 input[type=file]{display:none}
-@media(max-width:700px){.upload-pair{grid-template-columns:1fr}.metric-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:768px){.upload-pair{grid-template-columns:1fr}.metric-grid{grid-template-columns:repeat(2,1fr)}.rtabs{display:flex}}
 </style>
 </head>
 <body>
 <div class="wrap">
 
 <div class="header">
-  <img src="logo.png" alt="BioRivet Logo" style="height:42px; border-radius:8px; background:white; padding:2px; object-fit:contain;" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+  <img src="logo.png" alt="BioRivet Logo" style="height:72px; width:72px; border-radius:12px; background:white; padding:4px; object-fit:contain; box-shadow:0 0 15px rgba(255,255,255,0.2);" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
   <div class="logo" style="display:none;">BR</div>
   <div>
     <h1>BioRivet – NEET Diagnostic Tool &nbsp;<span style="opacity:.5;font-weight:400;font-size:13px">Generic Edition</span></h1>
     <p>Upload any question paper + answer key → Upload student OMR data → Get full diagnostic report instantly</p>
-    <p style="font-size:11px; font-weight:700; color:#E3F2FD; margin-top:4px; letter-spacing:0.5px; text-transform:uppercase;">KNOW MORE. FEAR LESS.</p>
+    <p class="header-tag">KNOW MORE. FEAR LESS.</p>
   </div>
 </div>
 
@@ -168,15 +214,28 @@ input[type=file]{display:none}
     <div class="card-title" id="qp-preview-title">&#10003; Question Bank Preview</div>
     
     <div id="ai-tag-prompt" style="display:none; background:#FFF8E1; border:1px solid #FFCC80; border-radius:8px; padding:16px; margin-bottom:16px;">
-      <h4 style="color:#E65100; margin-bottom:6px; font-size:13px; font-weight:700;">✨ Missing Data Detected</h4>
-      <p style="color:#5D4037; font-size:12px; margin-bottom:12px; line-height:1.5;">Some questions are missing Chapters, Error Types, or Answers. Would you like BioRivet AI to automatically read your questions and fill in the missing fields?</p>
-      <div style="display:flex; gap:10px; align-items:center;">
-        <button class="btn btn-primary" onclick="autoTagQuestions()" id="ai-tag-btn">✨ Auto-Tag with AI</button>
-        <span id="ai-tag-status" style="font-size:12px; font-weight:600; color:#1F3864;"></span>
+      <h4 style="color:#E65100; margin-bottom:12px; font-size:13px; font-weight:700;">✨ AI Forensic Tagging Control Panel</h4>
+      <p style="color:#5D4037; font-size:12px; margin-bottom:12px; line-height:1.5;">Some questions are missing basic tags, or you haven't populated the forensic audits yet. Trigger individual audits below:</p>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:10px; align-items:center;">
+        <button class="btn btn-secondary" onclick="runTagging('chapter', ['chapter', 'sub'], 'btn-tag-chap')" id="btn-tag-chap">Tag Chapters</button>
+        <button class="btn btn-secondary" onclick="runTagging('errorType', ['errorType'], 'btn-tag-err')" id="btn-tag-err">Tag Error Types</button>
+        <button class="btn btn-secondary" onclick="runTagging('answer', ['ans'], 'btn-tag-ans')" id="btn-tag-ans">Tag Answer Keys</button>
+        <button class="btn btn-primary" onclick="runTagging('cognitive', ['cognitiveLevel'], 'btn-tag-cog')" id="btn-tag-cog">Analyze Logic</button>
+        <button class="btn btn-primary" onclick="runTagging('ncert', ['ncertDirectness'], 'btn-tag-ncert')" id="btn-tag-ncert">Audit NCERT</button>
+        <button class="btn btn-primary" onclick="runTagging('format', ['formatType', 'targetTime'], 'btn-tag-fmt')" id="btn-tag-fmt">Detect Formats</button>
       </div>
+      <div id="ai-tag-status" style="font-size:12px; font-weight:600; color:#1F3864; margin-top: 12px; min-height: 18px;"></div>
     </div>
 
     <div style="overflow-x:auto;margin-bottom:14px"><table><thead id="qp-preview-head"></thead><tbody id="qp-preview-body"></tbody></table></div>
+    
+    <div style="margin-bottom: 16px; background:#f7faff; border:1px solid #ccd6e8; border-radius:8px; padding:12px; display:flex; align-items:center; flex-wrap:wrap; gap:10px;">
+      <label for="exam-time-input" style="font-size:13px; font-weight:700; color:#1F3864;">Total Exam Time (Mins): </label>
+      <input type="number" id="exam-time-input" value="180" placeholder="e.g. 180" style="padding:6px; border:1px solid #ccd6e8; border-radius:4px; width:80px;">
+      <button class="btn btn-secondary" style="padding:6px 12px; font-size:11px;" onclick="normalizeTimes()">⚖️ Calibrate Target Times</button>
+      <span style="font-size:11px; color:#666;">(Ensures the sum of all AI target times equals your exact exam duration)</span>
+    </div>
+
     <button class="btn btn-primary" onclick="gotoStep(2)" id="next-step-btn">Next: Upload Student Answers →</button>
   </div>
 
@@ -457,7 +516,8 @@ function parseQP(rows, fname) {
 
     questions.push({
       qno, text, chapter:chap, sub, errorType:err, ans,
-      needsTagging: (!ansValid || chapMissing || errMissing)
+      needsTagging: (!ansValid || chapMissing || errMissing),
+      cognitiveLevel: '—', ncertDirectness: '—', formatType: '—', targetTime: '—'
     });
   }
 
@@ -476,13 +536,14 @@ function parseQP(rows, fname) {
   document.getElementById('qp-name').style.display='block';
   document.getElementById('qp-box').classList.add('loaded');
   
+  const hasText = questions.some(q => q.text);
   if (needsAutoTag) {
-    showOk('qp', questions.length+' questions loaded, but some are missing answers or tags. You can use AI to auto-tag them.');
+    showOk('qp', questions.length+' questions loaded, but some are missing basic tags. Use AI to auto-tag them.');
   } else {
-    showOk('qp', questions.length+' questions parsed from '+Object.keys(QP.chapGroups).length+' chapters.');
+    showOk('qp', questions.length+' questions parsed from '+Object.keys(QP.chapGroups).length+' chapters. You can now run advanced forensic AI audits.');
   }
   
-  renderQPPreview(needsAutoTag);
+  renderQPPreview(hasText);
 }
 
 function buildChapGroups() {
@@ -500,73 +561,149 @@ function buildChapGroups() {
   QP.chapColors = chapColors;
 }
 
-async function autoTagQuestions() {
-  const btn = document.getElementById('ai-tag-btn');
-  const status = document.getElementById('ai-tag-status');
-  btn.disabled = true;
-  
-  const untaggedQuestions = QP.questions.filter(q => q.needsTagging && q.text);
-  if (untaggedQuestions.length === 0) {
-      status.textContent = 'No questions need tagging.';
-      return;
-  }
-
-  status.textContent = `Connecting to AI server... (Processing ${untaggedQuestions.length} questions)`;
-
+async function apiFetchWithRetry(url, options, retries = 3, backoff = 30000) {
   try {
-      const response = await fetch('/api/auto-tag', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ questions: untaggedQuestions.map(q => ({ qno: q.qno, text: q.text })) })
-      });
-
-      const data = await response.json();
-
-      if (data.error) {
-          status.style.color = '#B71C1C';
-          status.textContent = 'Error: ' + data.error;
-          btn.disabled = false;
-          return;
+    const res = await fetch(url, options);
+    const data = await res.json();
+    if (res.status === 429 || (data.error && String(data.error).includes('429'))) {
+      if (retries > 0) {
+        document.getElementById('ai-tag-status').innerHTML = `<span style="color:#E65100">Rate limit reached. Auto-resuming in ${backoff/1000} seconds... (${retries} retries left)</span>`;
+        await new Promise(resolve => setTimeout(resolve, backoff));
+        return apiFetchWithRetry(url, options, retries - 1, backoff);
+      } else {
+        return { error: 'Rate limit exceeded and max retries reached.' };
       }
-
-      // Merge results
-      data.results.forEach(res => {
-          const q = QP.questions.find(q => q.qno === res.qno);
-          if (q) {
-              if (q.chapter === 'Unknown') q.chapter = res.chapter || 'Unknown';
-              if (!q.sub || q.sub === '—') q.sub = res.subConcept || res.sub || '—';
-              if (q.errorType === 'Unknown') q.errorType = res.errorType || 'Memory';
-              if (q.ans === '?') q.ans = res.ans || '?';
-              q.needsTagging = false;
-          }
-      });
-
-      buildChapGroups();
-      renderQPPreview(false);
-      
-      document.getElementById('ai-tag-prompt').style.display = 'none';
-      showOk('qp', '✨ AI Auto-Tagging Complete!');
-
-  } catch (error) {
-      status.style.color = '#B71C1C';
-      status.textContent = 'Network error communicating with backend.';
-      btn.disabled = false;
+    }
+    return data;
+  } catch (err) {
+    return { error: 'Network error communicating with backend.' };
   }
 }
 
-function renderQPPreview(needsAutoTag = false) {
+async function runTagging(tagType, fieldsToCheck, btnId) {
+  const btn = document.getElementById(btnId);
+  const status = document.getElementById('ai-tag-status');
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.innerHTML = `<span style="opacity:0.7">Loading...</span>`;
+  
+  const isMissing = (val) => !val || val === 'Unknown' || val === '?' || val === '—';
+  const questionsToTag = QP.questions.filter(q => q.text && fieldsToCheck.some(f => isMissing(q[f])));
+  
+  if (questionsToTag.length === 0) {
+      status.innerHTML = `<span style="color:#1B5E20">All questions already have ${tagType} tags.</span>`;
+      btn.disabled = false;
+      btn.innerHTML = originalText;
+      return;
+  }
+
+  status.innerHTML = `<span style="color:#1F3864">Connecting to AI server... (Processing ${questionsToTag.length} questions for ${tagType})</span>`;
+
+  const data = await apiFetchWithRetry('/api/auto-tag', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ questions: questionsToTag.map(q => ({ qno: q.qno, text: q.text })), tagType })
+  });
+
+  if (data.error) {
+      status.innerHTML = `<span style="color:#B71C1C">Error: ${data.error}</span>`;
+      btn.disabled = false;
+      btn.innerHTML = originalText;
+      return;
+  }
+
+  data.results.forEach(res => {
+      const q = QP.questions.find(q => q.qno === res.qno);
+      if (q) {
+          if (tagType === 'chapter') {
+              if (res.chapter) q.chapter = res.chapter;
+              if (res.subConcept) q.sub = res.subConcept;
+          } else if (tagType === 'errorType') {
+              if (res.errorType) q.errorType = res.errorType;
+          } else if (tagType === 'answer') {
+              if (res.ans) q.ans = res.ans;
+          } else if (tagType === 'cognitive') {
+              if (res.cognitiveLevel) q.cognitiveLevel = res.cognitiveLevel;
+          } else if (tagType === 'ncert') {
+              if (res.ncertDirectness) q.ncertDirectness = res.ncertDirectness;
+          } else if (tagType === 'format') {
+              if (res.formatType) q.formatType = res.formatType;
+              if (res.targetTime) q.targetTime = res.targetTime;
+          }
+      }
+  });
+
+  if (tagType === 'chapter') {
+      buildChapGroups();
+  }
+  
+  renderQPPreview(true);
+  
+  status.innerHTML = `<span style="color:#1B5E20">✨ AI Auto-Tagging for ${tagType} Complete!</span>`;
+  btn.disabled = false;
+  btn.innerHTML = originalText;
+}
+
+function normalizeTimes() {
+  const timeInput = document.getElementById('exam-time-input').value;
+  if (!timeInput || timeInput <= 0) {
+    alert("Please enter a valid total exam time in minutes.");
+    return;
+  }
+  
+  const totalSeconds = parseInt(timeInput) * 60;
+  let currentSum = 0;
+  
+  // Filter questions that have a valid number for targetTime
+  const qsWithTime = QP.questions.filter(q => !isNaN(parseInt(q.targetTime)));
+  
+  if (qsWithTime.length === 0) {
+    alert("No target times have been generated by the AI yet. Please run 'Detect Formats' first.");
+    return;
+  }
+  
+  qsWithTime.forEach(q => currentSum += parseInt(q.targetTime));
+  
+  if (currentSum === 0) {
+      alert("Sum of times is 0. Cannot calibrate.");
+      return;
+  }
+  
+  let scaledSum = 0;
+  qsWithTime.forEach((q, i) => {
+    const t = parseInt(q.targetTime);
+    let scaledTime = Math.round((t / currentSum) * totalSeconds);
+    
+    // Ensure the sum perfectly matches by dumping any rounding remainder into the last question
+    if (i === qsWithTime.length - 1) {
+      scaledTime = totalSeconds - scaledSum;
+    }
+    
+    q.targetTime = scaledTime;
+    scaledSum += scaledTime;
+  });
+  
+  renderQPPreview(true);
+  
+  const status = document.getElementById('ai-tag-status');
+  if (status) {
+      status.innerHTML = `<span style="color:#1B5E20">⚖️ Target times calibrated! The sum now perfectly matches ${timeInput} minutes.</span>`;
+  }
+}
+
+function renderQPPreview(showTagPanel = false) {
   document.getElementById('qp-preview-card').style.display='';
-  document.getElementById('ai-tag-prompt').style.display = needsAutoTag ? 'block' : 'none';
-  document.getElementById('qp-preview-title').innerHTML = needsAutoTag ? '&#9888; Question Bank Preview (Missing Fields)' : '&#10003; Question Bank Preview';
+  document.getElementById('ai-tag-prompt').style.display = showTagPanel ? 'block' : 'none';
+  document.getElementById('qp-preview-title').innerHTML = '&#10003; Question Bank Preview';
   
   const head = document.getElementById('qp-preview-head');
   const body = document.getElementById('qp-preview-body');
 
-  head.innerHTML = '<tr><th>Q No</th><th>Question</th><th>Chapter</th><th>Sub-Concept</th><th>Error Type</th><th class="ctr">Answer</th></tr>';
+  head.innerHTML = '<tr><th>Q No</th><th>Question</th><th>Chapter</th><th>Sub-Concept</th><th>Error Type</th><th>Cognitive Level</th><th>NCERT Directness</th><th>Format</th><th class="ctr">Time (s)</th><th class="ctr">Answer</th></tr>';
   body.innerHTML = '';
   const show = Math.min(QP.questions.length, 20);
   QP.questions.slice(0,show).forEach(q => {
-    const {bg,tc} = QP.chapColors[q.chapter];
+    const {bg,tc} = QP.chapColors[q.chapter] || {bg:'#f0f0f0', tc:'#333'};
     const ec = q.errorType==='Memory'?'#FFF2CC':q.errorType==='Conceptual'?'#FCE4D6':'#E2EFDA';
     const et = q.errorType==='Memory'?'#7B6000':q.errorType==='Conceptual'?'#7B2D00':'#1E4620';
     body.innerHTML += `<tr>
@@ -575,11 +712,15 @@ function renderQPPreview(needsAutoTag = false) {
       <td><span class="ch-badge" style="background:${bg};color:${tc}">${q.chapter}</span></td>
       <td>${q.sub||'—'}</td>
       <td><span style="background:${ec};color:${et};padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">${q.errorType}</span></td>
+      <td>${q.cognitiveLevel||'—'}</td>
+      <td>${q.ncertDirectness||'—'}</td>
+      <td>${q.formatType||'—'}</td>
+      <td class="ctr">${q.targetTime||'—'}</td>
       <td class="ctr" style="font-weight:700;font-size:14px;color:#1F3864">${q.ans}</td>
     </tr>`;
   });
   if(QP.questions.length>show) {
-    body.innerHTML += `<tr><td colspan="6" style="color:#999;font-style:italic">… and ${QP.questions.length-show} more questions</td></tr>`;
+    body.innerHTML += `<tr><td colspan="10" style="color:#999;font-style:italic">… and ${QP.questions.length-show} more questions</td></tr>`;
   }
 }
 
